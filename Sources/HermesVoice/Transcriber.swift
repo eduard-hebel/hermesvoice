@@ -18,9 +18,13 @@ actor Transcriber {
 
         // Context-Prompt: konditioniert Whisper auf häufige Begriffe.
         // Akronyme/Fachwörter werden dadurch seltener als Buchstaben-Folgen interpretiert.
-        let contextPrompt = language == "de"
+        let baseHint = language == "de"
             ? "Diktat auf Deutsch. Technische Begriffe wie HUD, App, API, macOS, GPU, CPU, WiFi, GitHub, ChatGPT, Claude erscheinen als Akronyme."
             : "Dictation in English. Technical terms like HUD, API, macOS, GPU, CPU, WiFi, GitHub, ChatGPT, Claude appear as acronyms."
+
+        // Gelernte Schreibweisen (Auto-Learning aus Cleanup-Diffs) anhängen
+        let learnedHint = await MainActor.run { VocabularyStore.shared.contextHint }
+        let contextPrompt = baseHint + learnedHint
 
         var promptTokens: [Int]? = nil
         if let tokenizer = pipe.tokenizer {

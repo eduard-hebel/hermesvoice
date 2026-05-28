@@ -7,16 +7,44 @@ struct HermesVoiceApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("HermesVoice", systemImage: appState.status.iconName) {
+        MenuBarExtra {
             MenuBarContent()
                 .environment(appState)
+        } label: {
+            MenubarIconLabel(status: appState.status)
         }
         .menuBarExtraStyle(.menu)
 
         Settings {
             SettingsView()
                 .environment(appState)
-                .frame(width: 520, height: 440)
+                .frame(width: 520, height: 460)
+        }
+    }
+}
+
+/// Menubar-Icon mit Status-spezifischer SF-Symbol-Animation.
+private struct MenubarIconLabel: View {
+    let status: DictationStatus
+
+    var body: some View {
+        switch status {
+        case .recording:
+            Image(systemName: "mic.fill")
+                .symbolEffect(.pulse, options: .repeating, value: status)
+        case .transcribing:
+            Image(systemName: "waveform")
+                .symbolEffect(.variableColor.iterative, options: .repeating, value: status)
+        case .cleaning:
+            Image(systemName: "sparkles")
+                .symbolEffect(.bounce, options: .repeating, value: status)
+        case .loadingModel:
+            Image(systemName: "arrow.down.circle")
+                .symbolEffect(.pulse, options: .repeating, value: status)
+        case .error:
+            Image(systemName: "exclamationmark.triangle.fill")
+        case .idle:
+            Image(systemName: "mic.fill")
         }
     }
 }

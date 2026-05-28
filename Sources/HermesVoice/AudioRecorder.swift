@@ -33,6 +33,7 @@ actor AudioRecorder {
 
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in
             try? file.write(from: buffer)
+            AudioMeter.shared.report(buffer: buffer)
         }
 
         try engine.start()

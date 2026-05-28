@@ -70,17 +70,19 @@ final class RecordingHUDController {
 
 private struct HUDView: View {
     let status: DictationStatus
-    @State private var pulse = false
+    @State private var meter = AudioMeter.shared
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: iconName)
-                .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(.white)
-                .scaleEffect(pulse && status.isRecording ? 1.15 : 1.0)
-                .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true),
-                           value: pulse)
-                .onAppear { pulse = true }
+            if status.isRecording {
+                WaveformBars(level: meter.level)
+                    .frame(width: 32, height: 28)
+            } else {
+                Image(systemName: iconName)
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(.white)
+                    .symbolEffect(.pulse, options: .repeating, isActive: true)
+            }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
@@ -93,7 +95,7 @@ private struct HUDView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
-        .frame(width: 180, height: 56)
+        .frame(width: 200, height: 56)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.black.opacity(0.78))
@@ -134,5 +136,32 @@ private extension DictationStatus {
     var isRecording: Bool {
         if case .recording = self { return true }
         return false
+    }
+}
+
+/// 5 vertikale Bars, deren Höhe sich vom Audio-Level + Sinus-Versatz ableitet.
+/// Ergibt die typische Diktat-App-Waveform-Look.
+private struct WaveformBars: View {
+    let level: Float
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .center, spacing: 3) {
+                ForEach(0..<5, id: \.self) { i in
+                    Capsule()
+                        .fill(.white)
+                        .frame(width: 3, height: barHeight(index: i, time: t))
+                }
+            }
+            .animation(.easeOut(duration: 0.08), value: level)
+        }
+    }
+
+    private func barHeight(index: Int, time: TimeInterval) -> CGFloat {
+        let phase = time * 6.0 + Double(index) * 0.7
+        let oscillation = (sin(phase) + 1) / 2 * 0.6 + 0.4   // [0.4, 1.0]
+        let base = CGFloat(level) * 22.0 + 4.0
+        return base * CGFloat(oscillation)
     }
 }

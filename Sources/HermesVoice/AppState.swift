@@ -4,7 +4,7 @@ import OSLog
 
 private let log = Logger(subsystem: "de.hermes.voice", category: "AppState")
 
-enum DictationStatus {
+enum DictationStatus: Equatable {
     case loadingModel       // Erstmaliger ANE-Compile, kann 5–10 min dauern
     case idle
     case recording
@@ -62,10 +62,36 @@ final class AppState {
     }
 
     func registerHotkey() {
-        // Wird in HotkeyController umgesetzt
-        HotkeyController.shared.onToggle = { [weak self] in
+        let hk = HotkeyController.shared
+        hk.onToggle = { [weak self] in
             Task { @MainActor in await self?.toggle() }
         }
+        hk.onPushToTalkDown = { [weak self] in
+            Task { @MainActor in await self?.pushToTalkDown() }
+        }
+        hk.onPushToTalkUp = { [weak self] in
+            Task { @MainActor in await self?.pushToTalkUp() }
+        }
+        hk.onVoiceCommandToggle = { [weak self] in
+            Task { @MainActor in await self?.voiceCommandToggle() }
+        }
+    }
+
+    /// Push-to-Talk DOWN: starte Aufnahme, falls idle.
+    func pushToTalkDown() async {
+        if case .idle = status { await toggle() }
+    }
+
+    /// Push-to-Talk UP: stoppe Aufnahme, falls recording.
+    func pushToTalkUp() async {
+        if case .recording = status { await toggle() }
+    }
+
+    /// Voice-Command (Selection wird mit Sprachbefehl modifiziert).
+    /// Toggle wie Diktat — erst aufnehmen, dann Befehl an Claude.
+    func voiceCommandToggle() async {
+        // Implementiert in VoiceCommandController, hier nur Delegation
+        await VoiceCommandController.shared.toggle()
     }
 
     func toggle() async {
@@ -82,6 +108,7 @@ final class AppState {
 
     private func startRecording() async {
         log.info("startRecording() begin")
+        MediaController.pauseIfPlaying()
         do {
             try await recorder.start()
             status = .recording
@@ -107,7 +134,11 @@ final class AppState {
             if cleanupEnabled, !text.isEmpty {
                 status = .cleaning
                 let currentMode = formatMode
+                let rawTranscript = text
                 text = (try? await cleanup.polish(text, mode: currentMode)) ?? text
+                // Auto-Learning: Diff zwischen Roh-Whisper-Output und Claude-Cleanup
+                // wird als Vocab-Wissen gespeichert.
+                VocabularyStore.shared.learn(raw: rawTranscript, cleaned: text)
                 log.info("Cleanup done (mode: \(currentMode.rawValue, privacy: .public))")
             }
 
