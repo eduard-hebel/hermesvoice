@@ -12,10 +12,14 @@ actor CleanupService {
         self.claudePath = claudePath
     }
 
-    func polish(_ raw: String, mode: FormatMode = .free) async throws -> String {
+    func polish(_ raw: String, mode: FormatMode = .free, vocabHint: String = "") async throws -> String {
         guard FileManager.default.isExecutableFile(atPath: claudePath) else {
             throw CleanupError.cliNotFound(claudePath)
         }
+
+        // Gelernte Schreibweisen (Auto-Learning) als zusätzlichen Hinweis — hier statt
+        // in Whisper, weil Claude robust damit umgeht (kein Context-Limit-Problem).
+        let vocabLine = vocabHint.isEmpty ? "" : "\n   - Bevorzugte Schreibweisen:\(vocabHint)"
 
         let prompt = """
         Du bekommst einen diktierten Text aus einer Speech-to-Text-Erkennung. \
@@ -25,7 +29,7 @@ actor CleanupService {
         2. Offensichtliche Transkriptions-Fehler korrigieren:
            - Buchstabierte Akronyme wieder zusammenziehen (z.B. "H-U-D" → "HUD", "A-P-I" → "API").
            - Falsche Umlaute oder fehlende Buchstaben in häufigen deutschen Wörtern fixen (z.B. "Fühwörter" → "Füllwörter").
-           - Isolierte Laute wie "S-" oder "M-" die offensichtlich für Wörter wie "Ähs", "Mhm" stehen, kontextgerecht setzen.
+           - Isolierte Laute wie "S-" oder "M-" die offensichtlich für Wörter wie "Ähs", "Mhm" stehen, kontextgerecht setzen.\(vocabLine)
         3. Satzbau gerade ziehen, fehlende Interpunktion ergänzen.
 
         Modus-spezifisch:

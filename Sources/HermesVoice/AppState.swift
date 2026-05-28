@@ -177,7 +177,8 @@ final class AppState {
                 status = .cleaning
                 let currentMode = formatMode
                 let rawTranscript = text
-                text = (try? await cleanup.polish(text, mode: currentMode)) ?? text
+                let vocabHint = VocabularyStore.shared.contextHint
+                text = (try? await cleanup.polish(text, mode: currentMode, vocabHint: vocabHint)) ?? text
                 // Auto-Learning: Diff zwischen Roh-Whisper-Output und Claude-Cleanup.
                 VocabularyStore.shared.learn(raw: rawTranscript, cleaned: text)
                 log.info("Cleanup done (mode: \(currentMode.rawValue, privacy: .public))")
