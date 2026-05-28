@@ -4,6 +4,7 @@ import AppKit
 struct MenuBarContent: View {
     @Environment(AppState.self) private var state
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var state = state
@@ -28,14 +29,18 @@ struct MenuBarContent: View {
             let history = HistoryStore.shared.entries
             if !history.isEmpty {
                 Divider()
-                Menu("Letzte Diktate") {
-                    ForEach(history.prefix(20)) { entry in
+                Button("Verlauf öffnen… (voller Text)") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "history")
+                }
+                Menu("Schnell kopieren") {
+                    ForEach(history.prefix(15)) { entry in
                         Button(entry.preview) {
                             HistoryStore.shared.copyToClipboard(entry)
                         }
                     }
                     Divider()
-                    Button("History leeren") {
+                    Button("Verlauf leeren") {
                         HistoryStore.shared.clear()
                     }
                 }

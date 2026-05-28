@@ -20,6 +20,10 @@ struct HermesVoiceApp: App {
                 .environment(appState)
                 .frame(width: 520, height: 460)
         }
+
+        Window("Verlauf", id: "history") {
+            HistoryWindow()
+        }
     }
 }
 
