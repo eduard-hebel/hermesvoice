@@ -19,6 +19,12 @@ struct MenuBarContent: View {
             }
             .keyboardShortcut(.space, modifiers: [.command, .shift])
 
+            if RecordingStore.latestRecording != nil {
+                Button("Letzte Aufnahme neu transkribieren") {
+                    Task { await state.retranscribeLatest() }
+                }
+            }
+
             let history = HistoryStore.shared.entries
             if !history.isEmpty {
                 Divider()

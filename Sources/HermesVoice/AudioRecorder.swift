@@ -21,8 +21,9 @@ actor AudioRecorder {
 
         let format = input.outputFormat(forBus: 0)
 
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("hermesvoice-\(UUID().uuidString).wav")
+        // In den persistenten Recordings-Ordner schreiben (nicht temp), damit die
+        // Aufnahme als Sicherheitsnetz erhalten bleibt und neu transkribiert werden kann.
+        let url = RecordingStore.newRecordingURL()
 
         let file = try AVAudioFile(
             forWriting: url,

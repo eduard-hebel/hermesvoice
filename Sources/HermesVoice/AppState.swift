@@ -128,17 +128,47 @@ final class AppState {
             status = .transcribing
             let audioURL = try await recorder.stop()
             log.info("Recording stopped, file at \(audioURL.path)")
+            RecordingStore.pruneOld()   // Aufnahme bleibt erhalten, nur alte aufräumen
+            await processAudio(at: audioURL)
+        } catch {
+            log.error("stopAndProcess() failed: \(error.localizedDescription)")
+            SoundService.play(.error)
+            status = .error(error.localizedDescription)
+        }
+    }
+
+    /// Transkribiert eine bereits vorhandene Aufnahme erneut — Sicherheitsnetz,
+    /// falls die letzte Transkription leer/schlecht war oder die App vorher abstürzte.
+    func retranscribeLatest() async {
+        guard case .idle = status else {
+            log.warning("retranscribeLatest ignored — busy")
+            return
+        }
+        guard let url = RecordingStore.latestRecording else {
+            status = .error("Keine Aufnahme vorhanden")
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            status = .idle
+            return
+        }
+        log.info("Re-transcribing latest recording: \(url.lastPathComponent)")
+        status = .transcribing
+        await processAudio(at: url)
+    }
+
+    /// Gemeinsame Pipeline: Transcribe → (optional) Cleanup → Insert.
+    /// Wird von Live-Stop und Re-Transcribe geteilt.
+    private func processAudio(at audioURL: URL) async {
+        do {
             var text = try await transcriber.transcribe(audioURL: audioURL, language: languageHint)
             log.info("Transcribed (\(text.count) chars): \(text.prefix(80), privacy: .public)")
 
-            // Stiller-Fehler-Schutz: bei leerem Ergebnis hörbar/sichtbar Bescheid geben
-            // statt stumm durchzulaufen (kein Insert, kein History-Eintrag, kein
-            // Clipboard-Overwrite). Verhindert den "App ist kaputt"-Eindruck.
+            // Stiller-Fehler-Schutz: bei leerem Ergebnis hörbar/sichtbar Bescheid geben.
+            // Die Aufnahme bleibt erhalten — Hinweis nennt die Neu-Transkribieren-Option.
             if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                log.warning("Empty transcription — signalling user")
+                log.warning("Empty transcription — recording preserved at \(audioURL.lastPathComponent)")
                 SoundService.play(.error)
-                status = .error("Nichts erkannt — nochmal?")
-                try? await Task.sleep(nanoseconds: 1_800_000_000)
+                status = .error("Nichts erkannt — Audio gesichert, ⌘⇧Space-Menü → neu transkribieren")
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
                 status = .idle
                 return
             }
@@ -148,8 +178,7 @@ final class AppState {
                 let currentMode = formatMode
                 let rawTranscript = text
                 text = (try? await cleanup.polish(text, mode: currentMode)) ?? text
-                // Auto-Learning: Diff zwischen Roh-Whisper-Output und Claude-Cleanup
-                // wird als Vocab-Wissen gespeichert.
+                // Auto-Learning: Diff zwischen Roh-Whisper-Output und Claude-Cleanup.
                 VocabularyStore.shared.learn(raw: rawTranscript, cleaned: text)
                 log.info("Cleanup done (mode: \(currentMode.rawValue, privacy: .public))")
             }
@@ -161,7 +190,7 @@ final class AppState {
             NotificationService.shared.showTranscript(text, insertedSuccessfully: inserted)
             status = .idle
         } catch {
-            log.error("stopAndProcess() failed: \(error.localizedDescription)")
+            log.error("processAudio() failed: \(error.localizedDescription)")
             SoundService.play(.error)
             status = .error(error.localizedDescription)
         }
