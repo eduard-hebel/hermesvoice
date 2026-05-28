@@ -109,7 +109,9 @@ final class VoiceCommandController {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: claudePath)
-        process.arguments = ["-p", prompt, "--model", "sonnet"]
+        // Modell in den Einstellungen umschaltbar (Default: Sonnet — besseres
+        // Kontextverständnis für Transformationen wie „mach kürzer", „übersetze").
+        process.arguments = ["-p", prompt, "--model", ClaudeModel.voiceCommand().cliName]
         let stdout = Pipe()
         process.standardOutput = stdout
         process.standardError = Pipe()

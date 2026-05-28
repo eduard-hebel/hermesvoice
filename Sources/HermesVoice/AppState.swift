@@ -41,6 +41,14 @@ final class AppState {
     }() {
         didSet { UserDefaults.standard.set(formatMode.rawValue, forKey: "formatMode") }
     }
+    /// Claude-Modell für die Cleanup-Stage — in den Einstellungen umschaltbar.
+    var cleanupModel: ClaudeModel = ClaudeModel.cleanup() {
+        didSet { UserDefaults.standard.set(cleanupModel.rawValue, forKey: ClaudeModel.cleanupKey) }
+    }
+    /// Claude-Modell für Voice-Command-Transformationen — in den Einstellungen umschaltbar.
+    var voiceCommandModel: ClaudeModel = ClaudeModel.voiceCommand() {
+        didSet { UserDefaults.standard.set(voiceCommandModel.rawValue, forKey: ClaudeModel.voiceCommandKey) }
+    }
     /// Zeigt an, ob das Modell schon mal erfolgreich geladen wurde (ANE-Cache vorhanden).
     var hasLoadedBefore: Bool = UserDefaults.standard.bool(forKey: "hasLoadedBefore")
 
@@ -221,8 +229,9 @@ final class AppState {
                 let currentMode = formatMode
                 let rawTranscript = text
                 let vocabHint = VocabularyStore.shared.contextHint
+                let model = cleanupModel
                 do {
-                    text = try await cleanup.polish(text, mode: currentMode, vocabHint: vocabHint)
+                    text = try await cleanup.polish(text, mode: currentMode, vocabHint: vocabHint, model: model)
                     VocabularyStore.shared.learn(raw: rawTranscript, cleaned: text)
                     log.info("Cleanup done (mode: \(currentMode.rawValue, privacy: .public))")
                 } catch is CancellationError {

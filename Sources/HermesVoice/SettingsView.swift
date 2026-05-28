@@ -37,7 +37,25 @@ struct SettingsView: View {
                     .onChange(of: state.cleanupEnabled) { _, new in
                         UserDefaults.standard.set(new, forKey: "cleanupEnabled")
                     }
-                Text("Nutzt deinen lokalen Claude-CLI (Max Plan). Kein API-Key nötig. ~1–2 Sek pro Diktat extra.")
+                if state.cleanupEnabled {
+                    Picker("Cleanup-Modell", selection: $state.cleanupModel) {
+                        ForEach(ClaudeModel.allCases) { model in
+                            Text(model.label).tag(model)
+                        }
+                    }
+                }
+                Text("Nutzt deinen lokalen Claude-CLI (Max Plan). Kein API-Key nötig. Haiku ist am schnellsten.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Voice-Command (Selection)") {
+                Picker("Voice-Command-Modell", selection: $state.voiceCommandModel) {
+                    ForEach(ClaudeModel.allCases) { model in
+                        Text(model.label).tag(model)
+                    }
+                }
+                Text("Modell für Transformationen auf markiertem Text (⌘⇧⌃V). Sonnet versteht komplexe Befehle besser.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

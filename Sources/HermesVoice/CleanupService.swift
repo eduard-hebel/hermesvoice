@@ -12,7 +12,7 @@ actor CleanupService {
         self.claudePath = claudePath
     }
 
-    func polish(_ raw: String, mode: FormatMode = .free, vocabHint: String = "") async throws -> String {
+    func polish(_ raw: String, mode: FormatMode = .free, vocabHint: String = "", model: ClaudeModel = .haiku) async throws -> String {
         guard FileManager.default.isExecutableFile(atPath: claudePath) else {
             throw CleanupError.cliNotFound(claudePath)
         }
@@ -44,9 +44,9 @@ actor CleanupService {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: claudePath)
-        // Haiku: schnellstes Modell, niedrigste Latenz für die Cleanup-Stage.
-        // Reicht für Füllwörter-Entfernung + Akronym-/Umlaut-Korrektur völlig aus.
-        process.arguments = ["-p", prompt, "--model", "haiku"]
+        // Modell ist in den Einstellungen pro Funktion umschaltbar (Default: Haiku,
+        // schnellste Latenz). Reicht für Füllwörter + Akronym-/Umlaut-Korrektur.
+        process.arguments = ["-p", prompt, "--model", model.cliName]
 
         let stdout = Pipe()
         let stderr = Pipe()
