@@ -69,7 +69,7 @@ struct MenuBarContent: View {
         case .loadingModel: state.hasLoadedBefore
                             ? "Modell lädt…"
                             : "Erster Start: optimiere für Neural Engine (~5–10 min, einmalig)"
-        case .idle:         "Bereit · ⌘⇧Space"
+        case .idle:         "Bereit · ⌘⇧Space toggle · ⌃Space halten · ⌘⇧⌃V Command"
         case .recording:    "● Aufnahme läuft"
         case .transcribing: "Transkribiere…"
         case .cleaning:     "Glätte Text…"

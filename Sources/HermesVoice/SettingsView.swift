@@ -10,8 +10,13 @@ struct SettingsView: View {
         @Bindable var state = state
 
         Form {
-            Section("Hotkey") {
-                KeyboardShortcuts.Recorder("Diktat starten / stoppen:", name: .toggleDictation)
+            Section("Hotkeys") {
+                KeyboardShortcuts.Recorder("Toggle-Diktat:", name: .toggleDictation)
+                KeyboardShortcuts.Recorder("Push-to-Talk (gedrückt halten):", name: .pushToTalk)
+                KeyboardShortcuts.Recorder("Voice-Command auf Selection:", name: .voiceCommand)
+                Text("Toggle: 1× drücken / 1× drücken. Push-to-Talk: gedrückt halten. Voice-Command: Text markieren, drücken, Befehl sagen, nochmal drücken.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Sprache & Modell") {
