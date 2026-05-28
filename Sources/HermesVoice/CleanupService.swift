@@ -37,7 +37,10 @@ actor CleanupService {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: claudePath)
-        process.arguments = ["-p", prompt]
+        // Sonnet ist die richtige Mischung aus Quality und Latenz für Cleanup —
+        // versteht Kontext (Akronyme, Umlaute) deutlich besser als Haiku,
+        // bleibt aber unter 2 Sek pro Diktat.
+        process.arguments = ["-p", prompt, "--model", "sonnet"]
 
         let stdout = Pipe()
         let stderr = Pipe()

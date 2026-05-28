@@ -1,7 +1,9 @@
 import SwiftUI
+import AppKit
 
 struct MenuBarContent: View {
     @Environment(AppState.self) private var state
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         @Bindable var state = state
@@ -31,9 +33,11 @@ struct MenuBarContent: View {
                     UserDefaults.standard.set(new, forKey: "cleanupEnabled")
                 }
 
-            SettingsLink {
-                Text("Einstellungen…")
+            Button("Einstellungen…") {
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
             }
+            .keyboardShortcut(",")
 
             Divider()
             Button("HermesVoice beenden") { NSApp.terminate(nil) }
