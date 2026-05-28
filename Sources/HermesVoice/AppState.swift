@@ -34,6 +34,13 @@ final class AppState {
     var cleanupEnabled: Bool = UserDefaults.standard.bool(forKey: "cleanupEnabled")
     var modelName: String = UserDefaults.standard.string(forKey: "modelName") ?? "large-v3-v20240930_626MB"
     var languageHint: String = UserDefaults.standard.string(forKey: "languageHint") ?? "de"
+    var formatMode: FormatMode = {
+        guard let raw = UserDefaults.standard.string(forKey: "formatMode"),
+              let mode = FormatMode(rawValue: raw) else { return .free }
+        return mode
+    }() {
+        didSet { UserDefaults.standard.set(formatMode.rawValue, forKey: "formatMode") }
+    }
     /// Zeigt an, ob das Modell schon mal erfolgreich geladen wurde (ANE-Cache vorhanden).
     var hasLoadedBefore: Bool = UserDefaults.standard.bool(forKey: "hasLoadedBefore")
 
@@ -78,15 +85,18 @@ final class AppState {
         do {
             try await recorder.start()
             status = .recording
+            SoundService.play(.start)
             log.info("startRecording() success — engine running")
         } catch {
             log.error("startRecording() failed: \(error.localizedDescription)")
+            SoundService.play(.error)
             status = .error("Mic-Start: \(error.localizedDescription)")
         }
     }
 
     private func stopAndProcess() async {
         log.info("stopAndProcess() begin")
+        SoundService.play(.stop)
         do {
             status = .transcribing
             let audioURL = try await recorder.stop()
@@ -96,17 +106,20 @@ final class AppState {
 
             if cleanupEnabled, !text.isEmpty {
                 status = .cleaning
-                text = (try? await cleanup.polish(text)) ?? text
-                log.info("Cleanup done")
+                let currentMode = formatMode
+                text = (try? await cleanup.polish(text, mode: currentMode)) ?? text
+                log.info("Cleanup done (mode: \(currentMode.rawValue, privacy: .public))")
             }
 
             lastTranscript = text
+            HistoryStore.shared.add(text: text, mode: formatMode)
             let inserted = inserter.insert(text)
             log.info("Insert result — pasted: \(inserted, privacy: .public)")
             NotificationService.shared.showTranscript(text, insertedSuccessfully: inserted)
             status = .idle
         } catch {
             log.error("stopAndProcess() failed: \(error.localizedDescription)")
+            SoundService.play(.error)
             status = .error(error.localizedDescription)
         }
     }

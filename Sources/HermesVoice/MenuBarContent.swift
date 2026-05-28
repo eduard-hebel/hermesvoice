@@ -19,19 +19,38 @@ struct MenuBarContent: View {
             }
             .keyboardShortcut(.space, modifiers: [.command, .shift])
 
-            if !state.lastTranscript.isEmpty {
+            let history = HistoryStore.shared.entries
+            if !history.isEmpty {
                 Divider()
-                Text("Letztes Transcript:")
-                    .foregroundStyle(.secondary)
-                Text(state.lastTranscript.prefix(80) + (state.lastTranscript.count > 80 ? "…" : ""))
+                Menu("Letzte Diktate") {
+                    ForEach(history.prefix(20)) { entry in
+                        Button(entry.preview) {
+                            HistoryStore.shared.copyToClipboard(entry)
+                        }
+                    }
+                    Divider()
+                    Button("History leeren") {
+                        HistoryStore.shared.clear()
+                    }
+                }
             }
 
             Divider()
 
-            Toggle("Cleanup mit Claude Haiku", isOn: $state.cleanupEnabled)
+            Toggle("Cleanup aktiv", isOn: $state.cleanupEnabled)
                 .onChange(of: state.cleanupEnabled) { _, new in
                     UserDefaults.standard.set(new, forKey: "cleanupEnabled")
                 }
+
+            if state.cleanupEnabled {
+                Picker("Format", selection: $state.formatMode) {
+                    ForEach(FormatMode.allCases) { mode in
+                        Label(mode.label, systemImage: mode.iconName).tag(mode)
+                    }
+                }
+            }
+
+            Divider()
 
             Button("Einstellungen…") {
                 NSApp.activate(ignoringOtherApps: true)

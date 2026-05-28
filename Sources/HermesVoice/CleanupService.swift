@@ -12,7 +12,7 @@ actor CleanupService {
         self.claudePath = claudePath
     }
 
-    func polish(_ raw: String) async throws -> String {
+    func polish(_ raw: String, mode: FormatMode = .free) async throws -> String {
         guard FileManager.default.isExecutableFile(atPath: claudePath) else {
             throw CleanupError.cliNotFound(claudePath)
         }
@@ -24,11 +24,14 @@ actor CleanupService {
         1. Versprecher und Füllwörter (äh, ähm, halt, also, ne, weißt-du) raus.
         2. Offensichtliche Transkriptions-Fehler korrigieren:
            - Buchstabierte Akronyme wieder zusammenziehen (z.B. "H-U-D" → "HUD", "A-P-I" → "API").
-           - Falsche Umlaute oder fehlende Buchstaben in häufigen deutschen Wörtern fixen (z.B. "Fühwörter" → "Füllwörter", "Probleme" statt "Probleme").
+           - Falsche Umlaute oder fehlende Buchstaben in häufigen deutschen Wörtern fixen (z.B. "Fühwörter" → "Füllwörter").
            - Isolierte Laute wie "S-" oder "M-" die offensichtlich für Wörter wie "Ähs", "Mhm" stehen, kontextgerecht setzen.
         3. Satzbau gerade ziehen, fehlende Interpunktion ergänzen.
-        4. Inhalt NICHT verändern, Sprache beibehalten, Tonalität beibehalten.
 
+        Modus-spezifisch:
+        \(mode.cleanupInstruction)
+
+        Inhalt NICHT erfinden, Sprache beibehalten.
         Gib NUR den bereinigten Text zurück — keine Anführungszeichen, kein Kommentar, kein Vor- oder Nachwort.
 
         Text:
