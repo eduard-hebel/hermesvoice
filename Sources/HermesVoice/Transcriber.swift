@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import CoreML
 import WhisperKit
 
 actor Transcriber {
@@ -17,8 +18,28 @@ actor Transcriber {
         // im Speicher). Bei Erststart ist das ein No-op, beim Modellwechsel essenziell.
         pipeline = nil
         do {
-            pipeline = try await WhisperKit(model: name)
-            Self.log.notice("WhisperKit model loaded: \(name, privacy: .public)")
+            // computeOptions: CPU+GPU statt der WhisperKit-Defaults (Encoder/Decoder = ANE).
+            // Die ANE braucht einen einmaligen AOT-Kaltkompile (5–15 min), der fragil ist und
+            // bei jedem OS-Update neu anfällt — genau das hat die App reproduzierbar zum
+            // Hängen gebracht. Der GPU-Pfad (Metal) kompiliert in Sekunden und cacht sauber;
+            // bei Diktat-Längen ist der Speed-Unterschied vernachlässigbar.
+            // prewarm+load: ohne sie würde `WhisperKit(model:)` (Convenience) nur setupModels
+            // (Dateien lokalisieren) machen — `load ?? (modelFolder != nil)` = false — und das
+            // eigentliche Laden erst beim ersten transcribe() nachholen, das dort in den
+            // 180s-Timeout (AppState.transcriptionTimeout) liefe. Mit prewarm+load ist das
+            // Modell schon im .loadingModel-Status fertig.
+            let config = WhisperKitConfig(
+                model: name,
+                computeOptions: ModelComputeOptions(
+                    melCompute: .cpuAndGPU,
+                    audioEncoderCompute: .cpuAndGPU,
+                    textDecoderCompute: .cpuAndGPU
+                ),
+                prewarm: true,
+                load: true
+            )
+            pipeline = try await WhisperKit(config)
+            Self.log.notice("WhisperKit model loaded + prewarmed: \(name, privacy: .public)")
         } catch {
             Self.log.error("WhisperKit preload failed for \(name, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
