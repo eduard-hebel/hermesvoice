@@ -1,0 +1,27 @@
+# Xcode
+*.xcodeproj/
+xcuserdata/
+*.xcworkspace/
+DerivedData/
+build/
+*.xcuserstate
+
+# Swift
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+
+# Secrets
+*.p12
+*.cer
+*.mobileprovision
+.env
+.env.local
+
+# WhisperKit-Modelle (zu groß für Git)
+Models/
+*.mlpackage/
+*.mlmodelc/
