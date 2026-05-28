@@ -1,25 +1,37 @@
 import AppKit
 import Carbon.HIToolbox
+import ApplicationServices
 
 /// Schreibt Text in den Clipboard und simuliert ⌘V im aktiven Fenster.
+/// Gibt zurück ob die ⌘V-Simulation wahrscheinlich erfolgreich war
+/// (= App hat Accessibility-Permission).
 struct TextInserter {
-    func insert(_ text: String) {
-        guard !text.isEmpty else { return }
+    @discardableResult
+    func insert(_ text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+
         let pasteboard = NSPasteboard.general
         let previous = pasteboard.string(forType: .string)
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
 
-        simulatePasteShortcut()
+        let canSimulate = AXIsProcessTrusted()
+        if canSimulate {
+            simulatePasteShortcut()
+        }
 
         // Vorigen Inhalt wiederherstellen mit kurzer Verzögerung
-        if let previous {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        // (auch wenn nicht eingefügt — der neue Text bleibt aber im Clipboard,
+        // damit der User selber ⌘V drücken kann)
+        if let previous, canSimulate {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 pasteboard.clearContents()
                 pasteboard.setString(previous, forType: .string)
             }
         }
+
+        return canSimulate
     }
 
     private func simulatePasteShortcut() {

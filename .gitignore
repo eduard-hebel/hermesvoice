@@ -4,7 +4,12 @@ xcuserdata/
 *.xcworkspace/
 DerivedData/
 build/
+.build-xcode/
 *.xcuserstate
+
+# xcodegen-generated artifacts (regenerable from project.yml)
+Sources/HermesVoice/Info.plist
+Sources/HermesVoice/HermesVoice.entitlements
 
 # Swift
 .build/

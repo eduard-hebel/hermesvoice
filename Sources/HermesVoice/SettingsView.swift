@@ -3,8 +3,8 @@ import KeyboardShortcuts
 
 struct SettingsView: View {
     @Environment(AppState.self) private var state
-    @State private var apiKeyInput: String = ""
-    @State private var apiKeySaved: Bool = false
+    @State private var autoStartEnabled: Bool = AutoStartService.shared.isEnabled
+    @State private var autoStartError: String?
 
     var body: some View {
         @Bindable var state = state
@@ -28,17 +28,32 @@ struct SettingsView: View {
             }
 
             Section("Cleanup (optional)") {
-                Toggle("Aktiv (Claude Haiku 4.5)", isOn: $state.cleanupEnabled)
-                SecureField("Anthropic API-Key", text: $apiKeyInput)
-                Button(apiKeySaved ? "Gespeichert ✓" : "Speichern") {
-                    KeychainHelper.shared.save(key: "anthropic_api_key", value: apiKeyInput)
-                    apiKeySaved = true
-                    apiKeyInput = ""
-                }
-                .disabled(apiKeyInput.isEmpty)
-                Text("Der Key bleibt lokal im Keychain. Kosten ~$0.0001 pro Diktat.")
+                Toggle("Versprecher & Füllwörter rausräumen", isOn: $state.cleanupEnabled)
+                    .onChange(of: state.cleanupEnabled) { _, new in
+                        UserDefaults.standard.set(new, forKey: "cleanupEnabled")
+                    }
+                Text("Nutzt deinen lokalen Claude-CLI (Max Plan). Kein API-Key nötig. ~1–2 Sek pro Diktat extra.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Allgemein") {
+                Toggle("Beim Login automatisch starten", isOn: $autoStartEnabled)
+                    .onChange(of: autoStartEnabled) { _, new in
+                        do {
+                            try AutoStartService.shared.setEnabled(new)
+                            autoStartError = nil
+                        } catch {
+                            autoStartError = error.localizedDescription
+                            // Rollback, da OS-Call fehlgeschlagen ist
+                            autoStartEnabled = AutoStartService.shared.isEnabled
+                        }
+                    }
+                if let autoStartError {
+                    Text("Fehler: \(autoStartError)")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
         }
         .formStyle(.grouped)

@@ -26,13 +26,17 @@ targets:
     type: application
     platform: macOS
     sources:
-      - Sources/HermesVoice
+      - path: Sources/HermesVoice
+        excludes:
+          - "*.entitlements"
     info:
       path: Sources/HermesVoice/Info.plist
       properties:
         CFBundleDisplayName: HermesVoice
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
+        CFBundleIconFile: AppIcon
+        CFBundleIconName: AppIcon
         LSUIElement: true # Menubar-Only, kein Dock-Icon
         LSMinimumSystemVersion: "14.0"
         NSMicrophoneUsageDescription: "HermesVoice braucht Mikrofon-Zugriff um deine Spracheingabe aufzunehmen und lokal mit Whisper zu transkribieren."
