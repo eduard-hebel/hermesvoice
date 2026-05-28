@@ -3,10 +3,19 @@ import OSLog
 import WhisperKit
 
 actor Transcriber {
+    /// Geteilte Instanz: Diktat (AppState) UND Voice-Command nutzen DIESELBE geladene
+    /// Pipeline. Zwei separate Large-V3-Modelle (~2–3 GB each) würden auf 8 GB RAM den
+    /// Speicher sprengen — und Voice-Command lud sein eigenes Modell früher nie, lief
+    /// also immer in `noPipeline`.
+    static let shared = Transcriber()
+
     private static let log = Logger(subsystem: "de.hermes.voice", category: "Transcriber")
     private var pipeline: WhisperKit?
 
     func preloadModel(name: String) async {
+        // Alte Pipeline ZUERST freigeben (8 GB RAM — niemals zwei Modelle gleichzeitig
+        // im Speicher). Bei Erststart ist das ein No-op, beim Modellwechsel essenziell.
+        pipeline = nil
         do {
             pipeline = try await WhisperKit(model: name)
             Self.log.notice("WhisperKit model loaded: \(name, privacy: .public)")

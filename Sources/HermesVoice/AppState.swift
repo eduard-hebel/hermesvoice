@@ -32,8 +32,23 @@ final class AppState {
     }
     var lastTranscript: String = ""
     var cleanupEnabled: Bool = UserDefaults.standard.bool(forKey: "cleanupEnabled")
-    var modelName: String = UserDefaults.standard.string(forKey: "modelName") ?? "large-v3-v20240930_626MB"
-    var languageHint: String = UserDefaults.standard.string(forKey: "languageHint") ?? "de"
+    /// Whisper-Modell. Wechsel in den Einstellungen wird persistiert UND die Pipeline
+    /// neu geladen — sonst bliebe die Auswahl wirkungslos (altes Modell weiter aktiv).
+    var modelName: String = UserDefaults.standard.string(forKey: "modelName") ?? "large-v3-v20240930_626MB" {
+        didSet {
+            guard modelName != oldValue else { return }
+            UserDefaults.standard.set(modelName, forKey: "modelName")
+            reloadModel()
+        }
+    }
+    /// Sprach-Hinweis. Greift pro Transkription, muss aber persistiert werden, sonst
+    /// fällt er bei jedem Neustart auf "de" zurück.
+    var languageHint: String = UserDefaults.standard.string(forKey: "languageHint") ?? "de" {
+        didSet {
+            guard languageHint != oldValue else { return }
+            UserDefaults.standard.set(languageHint, forKey: "languageHint")
+        }
+    }
     var formatMode: FormatMode = {
         guard let raw = UserDefaults.standard.string(forKey: "formatMode"),
               let mode = FormatMode(rawValue: raw) else { return .free }
@@ -53,7 +68,7 @@ final class AppState {
     var hasLoadedBefore: Bool = UserDefaults.standard.bool(forKey: "hasLoadedBefore")
 
     private let recorder = AudioRecorder()
-    private let transcriber = Transcriber()
+    private let transcriber = Transcriber.shared
     private let inserter = TextInserter()
     private let cleanup = CleanupService()
 
@@ -106,6 +121,28 @@ final class AppState {
         }
     }
 
+    /// Lädt das Whisper-Modell nach einem Modellwechsel in den Einstellungen neu.
+    /// Während einer laufenden Operation wird verschoben (greift beim nächsten Start —
+    /// der neue Name ist bereits persistiert). Die alte Pipeline wird in preloadModel
+    /// zuerst freigegeben, damit auf 8 GB RAM nie zwei Modelle gleichzeitig leben.
+    private func reloadModel() {
+        switch status {
+        case .recording, .transcribing, .cleaning:
+            log.notice("Model change deferred — busy, applies on next launch")
+            return
+        default:
+            break
+        }
+        let name = modelName
+        Task { @MainActor in
+            log.notice("Reloading Whisper model: \(name, privacy: .public)")
+            status = .loadingModel
+            await transcriber.preloadModel(name: name)
+            status = .idle
+            log.notice("Model reloaded — status idle")
+        }
+    }
+
     /// Push-to-Talk DOWN: starte Aufnahme, falls idle.
     func pushToTalkDown() async {
         if case .idle = status { await toggle() }
@@ -138,6 +175,7 @@ final class AppState {
     private func startRecording() async {
         log.info("startRecording() begin")
         MediaController.pauseIfPlaying()
+        AudioMeter.shared.reset()   // frischer Pegel — kein kurzes Aufblitzen des alten Werts
         do {
             try await recorder.start()
             status = .recording

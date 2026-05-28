@@ -13,9 +13,10 @@ final class VoiceCommandController {
     private static let log = Logger(subsystem: "de.hermes.voice", category: "VoiceCommand")
 
     private let recorder = AudioRecorder()
-    private let transcriber = Transcriber()
+    // Geteilte Pipeline mit dem Diktat-Pfad — eigenes Modell wäre nie geladen worden
+    // (→ noPipeline) und würde auf 8 GB RAM den Speicher sprengen.
+    private let transcriber = Transcriber.shared
     private let inserter = TextInserter()
-    private let claudePath = "/Users/edward/.local/bin/claude"
 
     private var capturedSelection: String = ""
     private var isRecording = false
@@ -50,6 +51,7 @@ final class VoiceCommandController {
         Self.log.info("Captured selection (\(self.capturedSelection.count) chars)")
 
         do {
+            AudioMeter.shared.reset()
             try await recorder.start()
             isRecording = true
             SoundService.play(.start)
@@ -107,19 +109,11 @@ final class VoiceCommandController {
         \(text)
         """
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: claudePath)
         // Modell in den Einstellungen umschaltbar (Default: Sonnet — besseres
         // Kontextverständnis für Transformationen wie „mach kürzer", „übersetze").
-        process.arguments = ["-p", prompt, "--model", ClaudeModel.voiceCommand().cliName]
-        let stdout = Pipe()
-        process.standardOutput = stdout
-        process.standardError = Pipe()
-        try process.run()
-        process.waitUntilExit()
-        let data = try stdout.fileHandleForReading.readToEnd() ?? Data()
-        let str = String(data: data, encoding: .utf8) ?? ""
-        return str.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Läuft über den gemeinsamen Runner: off-main + kein Pipe-Deadlock bei
+        // großen Selektionen (Output > 64 KB).
+        return try await ClaudeCLI.shared.run(prompt: prompt, model: ClaudeModel.voiceCommand())
     }
 
     /// Liest die aktuelle Text-Selection des fokussierten UI-Elements via AX-API.

@@ -21,11 +21,14 @@ struct TextInserter {
             simulatePasteShortcut()
         }
 
-        // Vorigen Inhalt wiederherstellen mit kurzer Verzögerung
-        // (auch wenn nicht eingefügt — der neue Text bleibt aber im Clipboard,
-        // damit der User selber ⌘V drücken kann)
+        // Vorigen Inhalt wiederherstellen mit Verzögerung. 0.8 s statt 0.4 s: auf einem
+        // ausgelasteten M1/8 GB (gerade nach der Transkription) kann das Ziel-Fenster
+        // den simulierten ⌘V verspätet verarbeiten — bei zu kurzem Delay würde das
+        // Clipboard zurückgesetzt, BEVOR der Paste den Text gelesen hat → leeres/altes
+        // Einfügen. Nur wenn wir tatsächlich gepastet haben (canSimulate); sonst bleibt
+        // der diktierte Text im Clipboard, damit der User selbst ⌘V drücken kann.
         if let previous, canSimulate {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 pasteboard.clearContents()
                 pasteboard.setString(previous, forType: .string)
             }
