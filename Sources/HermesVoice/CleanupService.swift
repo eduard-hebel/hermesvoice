@@ -54,8 +54,6 @@ actor CleanupService {
         process.standardOutput = stdout
         process.standardError = stderr
 
-        try process.run()
-
         // Timeout-Wächter (5 Min — sollte fast nie greifen, Cleanup ist sub-Sekunde)
         let timeoutTask = Task {
             try await Task.sleep(nanoseconds: 5 * 60 * 1_000_000_000)
@@ -65,8 +63,27 @@ actor CleanupService {
             }
         }
 
-        process.waitUntilExit()
+        // Prozess starten und auf Ende warten — abbrechbar. Bei Task-Cancellation
+        // (User drückt X im HUD) wird der claude-Prozess sofort getötet und
+        // CancellationError geworfen. terminationHandler wird VOR run() gesetzt,
+        // damit kein Race (kein doppeltes resume, kein verpasstes Ende).
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                process.terminationHandler = { _ in cont.resume() }
+                do {
+                    try process.run()
+                } catch {
+                    process.terminationHandler = nil
+                    cont.resume(throwing: error)
+                }
+            }
+        } onCancel: {
+            process.terminate()
+            Self.log.info("claude CLI cancelled by user")
+        }
         timeoutTask.cancel()
+
+        try Task.checkCancellation()
 
         let data = try stdout.fileHandleForReading.readToEnd() ?? Data()
         let errData = try stderr.fileHandleForReading.readToEnd() ?? Data()

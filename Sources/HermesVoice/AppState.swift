@@ -49,6 +49,9 @@ final class AppState {
     private let inserter = TextInserter()
     private let cleanup = CleanupService()
 
+    /// Laufender Verarbeitungs-Task (Transcribe → Cleanup → Insert), abbrechbar via X im HUD.
+    private var processingTask: Task<Void, Never>?
+
     init() {
         Task { @MainActor in
             await transcriber.preloadModel(name: modelName)
@@ -74,6 +77,11 @@ final class AppState {
         }
         hk.onVoiceCommandToggle = { [weak self] in
             Task { @MainActor in await self?.voiceCommandToggle() }
+        }
+
+        // X im HUD → laufende Operation abbrechen
+        RecordingHUDController.shared.onCancel = { [weak self] in
+            self?.cancelCurrent()
         }
     }
 
@@ -121,6 +129,28 @@ final class AppState {
         }
     }
 
+    /// Bricht die aktuelle Operation ab (X im HUD). Verhält sich kontextabhängig:
+    /// - während Aufnahme: Aufnahme verwerfen
+    /// - während Transkribieren/Glätten: Verarbeitung abbrechen (bei Cleanup wird der
+    ///   bereits erkannte Rohtext eingefügt, damit nichts verloren geht)
+    func cancelCurrent() {
+        log.info("cancelCurrent() — status: \(String(describing: self.status))")
+        switch status {
+        case .recording:
+            Task { await discardRecording() }
+        case .transcribing, .cleaning:
+            processingTask?.cancel()
+        default:
+            break
+        }
+    }
+
+    private func discardRecording() async {
+        _ = try? await recorder.stop()   // Engine stoppen, Audio verwerfen
+        SoundService.play(.stop)
+        status = .idle
+    }
+
     private func stopAndProcess() async {
         log.info("stopAndProcess() begin")
         SoundService.play(.stop)
@@ -129,7 +159,10 @@ final class AppState {
             let audioURL = try await recorder.stop()
             log.info("Recording stopped, file at \(audioURL.path)")
             RecordingStore.pruneOld()   // Aufnahme bleibt erhalten, nur alte aufräumen
-            await processAudio(at: audioURL)
+            let task = Task { await processAudio(at: audioURL) }
+            processingTask = task
+            await task.value
+            processingTask = nil
         } catch {
             log.error("stopAndProcess() failed: \(error.localizedDescription)")
             SoundService.play(.error)
@@ -152,7 +185,10 @@ final class AppState {
         }
         log.info("Re-transcribing latest recording: \(url.lastPathComponent)")
         status = .transcribing
-        await processAudio(at: url)
+        let task = Task { await processAudio(at: url) }
+        processingTask = task
+        await task.value
+        processingTask = nil
     }
 
     /// Gemeinsame Pipeline: Transcribe → (optional) Cleanup → Insert.
@@ -161,6 +197,13 @@ final class AppState {
         do {
             var text = try await transcriber.transcribe(audioURL: audioURL, language: languageHint)
             log.info("Transcribed (\(text.count) chars): \(text.prefix(80), privacy: .public)")
+
+            // Abbruch während/nach Transkription: nichts einfügen, Audio ist gesichert.
+            if Task.isCancelled {
+                log.info("Cancelled after transcription — audio preserved, no insert")
+                status = .idle
+                return
+            }
 
             // Stiller-Fehler-Schutz: bei leerem Ergebnis hörbar/sichtbar Bescheid geben.
             // Die Aufnahme bleibt erhalten — Hinweis nennt die Neu-Transkribieren-Option.
@@ -178,10 +221,19 @@ final class AppState {
                 let currentMode = formatMode
                 let rawTranscript = text
                 let vocabHint = VocabularyStore.shared.contextHint
-                text = (try? await cleanup.polish(text, mode: currentMode, vocabHint: vocabHint)) ?? text
-                // Auto-Learning: Diff zwischen Roh-Whisper-Output und Claude-Cleanup.
-                VocabularyStore.shared.learn(raw: rawTranscript, cleaned: text)
-                log.info("Cleanup done (mode: \(currentMode.rawValue, privacy: .public))")
+                do {
+                    text = try await cleanup.polish(text, mode: currentMode, vocabHint: vocabHint)
+                    VocabularyStore.shared.learn(raw: rawTranscript, cleaned: text)
+                    log.info("Cleanup done (mode: \(currentMode.rawValue, privacy: .public))")
+                } catch is CancellationError {
+                    // Abbruch während Glätten → Rohtext einfügen, nicht verlieren.
+                    log.info("Cleanup cancelled — inserting raw transcript")
+                    text = rawTranscript
+                } catch {
+                    // Anderer Cleanup-Fehler → Fallback auf Rohtext.
+                    log.error("Cleanup failed: \(error.localizedDescription) — using raw")
+                    text = rawTranscript
+                }
             }
 
             lastTranscript = text
@@ -189,6 +241,9 @@ final class AppState {
             let inserted = inserter.insert(text)
             log.info("Insert result — pasted: \(inserted, privacy: .public)")
             NotificationService.shared.showTranscript(text, insertedSuccessfully: inserted)
+            status = .idle
+        } catch is CancellationError {
+            log.info("Processing cancelled during transcription — audio preserved")
             status = .idle
         } catch {
             log.error("processAudio() failed: \(error.localizedDescription)")

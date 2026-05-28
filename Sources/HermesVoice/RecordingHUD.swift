@@ -7,6 +7,12 @@ import AppKit
 final class RecordingHUDController {
     static let shared = RecordingHUDController()
 
+    private static let width: CGFloat = 240
+    private static let height: CGFloat = 56
+
+    /// Wird vom AppState gesetzt; der X-Button im HUD ruft das auf.
+    var onCancel: (() -> Void)?
+
     private var panel: NSPanel?
     private var hostingView: NSHostingView<HUDView>?
     private var currentStatus: DictationStatus = .idle
@@ -25,7 +31,7 @@ final class RecordingHUDController {
         if panel == nil { build() }
         guard let panel else { return }
 
-        let view = HUDView(status: status)
+        let view = HUDView(status: status, onCancel: { [weak self] in self?.onCancel?() })
         hostingView?.rootView = view
         panel.orderFrontRegardless()
     }
@@ -35,12 +41,12 @@ final class RecordingHUDController {
     }
 
     private func build() {
-        let view = HUDView(status: .recording)
+        let view = HUDView(status: .recording, onCancel: { [weak self] in self?.onCancel?() })
         let host = NSHostingView(rootView: view)
-        host.frame = NSRect(x: 0, y: 0, width: 180, height: 56)
+        host.frame = NSRect(x: 0, y: 0, width: Self.width, height: Self.height)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 180, height: 56),
+            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.height),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -58,7 +64,7 @@ final class RecordingHUDController {
         // Oben mittig im Hauptbildschirm
         if let screen = NSScreen.main {
             let frame = screen.visibleFrame
-            let x = frame.midX - 90
+            let x = frame.midX - Self.width / 2
             let y = frame.maxY - 80
             panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
@@ -71,9 +77,11 @@ final class RecordingHUDController {
 private struct HUDView: View {
     let status: DictationStatus
     @State private var meter = AudioMeter.shared
+    @State private var cancelHover = false
+    let onCancel: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             if status.isRecording {
                 WaveformBars(level: meter.level)
                     .frame(width: 32, height: 28)
@@ -93,9 +101,19 @@ private struct HUDView: View {
                     .foregroundStyle(.white.opacity(0.75))
             }
             Spacer(minLength: 0)
+
+            // Abbrechen-Button
+            Button(action: onCancel) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(cancelHover ? .white : .white.opacity(0.55))
+            }
+            .buttonStyle(.plain)
+            .help(cancelHint)
+            .onHover { cancelHover = $0 }
         }
         .padding(.horizontal, 14)
-        .frame(width: 200, height: 56)
+        .frame(width: 240, height: 56)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.black.opacity(0.78))
@@ -103,6 +121,14 @@ private struct HUDView: View {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(.white.opacity(0.08), lineWidth: 1)
                 )
+        }
+    }
+
+    private var cancelHint: String {
+        switch status {
+        case .recording:    "Aufnahme verwerfen"
+        case .cleaning:     "Glätten abbrechen (Rohtext einfügen)"
+        default:            "Abbrechen"
         }
     }
 
