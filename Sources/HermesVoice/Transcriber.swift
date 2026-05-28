@@ -31,24 +31,18 @@ actor Transcriber {
             promptTokens = tokenizer.encode(text: contextPrompt)
         }
 
+        // Whisper-Defaults für die Decoding-Schwellwerte verwenden. Strengere Werte
+        // (compressionRatio/logProb) hatten legitime, v.a. repetitive Diktate komplett
+        // verworfen (0 chars). promptTokens (Context + Auto-Learning) bleiben — die sind
+        // unschädlich und hilfreich.
         let options = DecodingOptions(
             task: .transcribe,
             language: language,
             temperature: 0.0,
-            // Aggressivere Fallback-Decoding bei niedriger Konfidenz:
-            // 8 statt 5 Fallback-Runs, größere Temperatur-Schritte
-            temperatureIncrementOnFallback: 0.25,
-            temperatureFallbackCount: 8,
             usePrefillPrompt: true,
             skipSpecialTokens: true,
             withoutTimestamps: true,
-            promptTokens: promptTokens,
-            // Strengere Schwellwerte → Fallbacks werden früher getriggert
-            compressionRatioThreshold: 2.2,
-            logProbThreshold: -0.8,
-            firstTokenLogProbThreshold: -1.2,
-            // Voice Activity Detection: schneidet Stille, fokussiert auf Sprache
-            chunkingStrategy: .vad
+            promptTokens: promptTokens
         )
         let results = try await pipe.transcribe(audioPath: audioURL.path, decodeOptions: options)
         let texts: [String] = results.map { $0.text }

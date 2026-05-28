@@ -131,6 +131,18 @@ final class AppState {
             var text = try await transcriber.transcribe(audioURL: audioURL, language: languageHint)
             log.info("Transcribed (\(text.count) chars): \(text.prefix(80), privacy: .public)")
 
+            // Stiller-Fehler-Schutz: bei leerem Ergebnis hörbar/sichtbar Bescheid geben
+            // statt stumm durchzulaufen (kein Insert, kein History-Eintrag, kein
+            // Clipboard-Overwrite). Verhindert den "App ist kaputt"-Eindruck.
+            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                log.warning("Empty transcription — signalling user")
+                SoundService.play(.error)
+                status = .error("Nichts erkannt — nochmal?")
+                try? await Task.sleep(nanoseconds: 1_800_000_000)
+                status = .idle
+                return
+            }
+
             if cleanupEnabled, !text.isEmpty {
                 status = .cleaning
                 let currentMode = formatMode
