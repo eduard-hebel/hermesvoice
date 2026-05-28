@@ -18,9 +18,17 @@ actor CleanupService {
         }
 
         let prompt = """
-        Räume folgenden diktierten Text auf: Versprecher und Füllwörter (äh, ähm, halt, also) raus, \
-        Satzbau gerade ziehen, fehlende Interpunktion ergänzen. \
-        Inhalt nicht verändern, Sprache beibehalten. \
+        Du bekommst einen diktierten Text aus einer Speech-to-Text-Erkennung. \
+        Räume ihn auf:
+
+        1. Versprecher und Füllwörter (äh, ähm, halt, also, ne, weißt-du) raus.
+        2. Offensichtliche Transkriptions-Fehler korrigieren:
+           - Buchstabierte Akronyme wieder zusammenziehen (z.B. "H-U-D" → "HUD", "A-P-I" → "API").
+           - Falsche Umlaute oder fehlende Buchstaben in häufigen deutschen Wörtern fixen (z.B. "Fühwörter" → "Füllwörter", "Probleme" statt "Probleme").
+           - Isolierte Laute wie "S-" oder "M-" die offensichtlich für Wörter wie "Ähs", "Mhm" stehen, kontextgerecht setzen.
+        3. Satzbau gerade ziehen, fehlende Interpunktion ergänzen.
+        4. Inhalt NICHT verändern, Sprache beibehalten, Tonalität beibehalten.
+
         Gib NUR den bereinigten Text zurück — keine Anführungszeichen, kein Kommentar, kein Vor- oder Nachwort.
 
         Text:
