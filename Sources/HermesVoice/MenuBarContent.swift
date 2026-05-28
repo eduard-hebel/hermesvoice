@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import KeyboardShortcuts
 
 struct MenuBarContent: View {
     @Environment(AppState.self) private var state
@@ -18,7 +19,6 @@ struct MenuBarContent: View {
             Button("Aufnahme starten / stoppen") {
                 Task { await state.toggle() }
             }
-            .keyboardShortcut(.space, modifiers: [.command, .shift])
 
             if RecordingStore.latestRecording != nil {
                 Button("Letzte Aufnahme neu transkribieren") {
@@ -80,11 +80,20 @@ struct MenuBarContent: View {
         case .loadingModel: state.hasLoadedBefore
                             ? "Modell lädt…"
                             : "Erster Start: optimiere für Neural Engine (~5–10 min, einmalig)"
-        case .idle:         "Bereit · ⌘⇧Space toggle · ⌃Space halten · ⌘⇧⌃V Command"
+        case .idle:         idleLabel
         case .recording:    "● Aufnahme läuft"
         case .transcribing: "Transkribiere…"
         case .cleaning:     "Glätte Text…"
         case .error(let m): "Fehler: \(m)"
         }
+    }
+
+    /// Zeigt die tatsächlich in den Einstellungen gebundenen Hotkeys an,
+    /// statt fest verdrahteter Werte.
+    private var idleLabel: String {
+        let toggle = KeyboardShortcuts.getShortcut(for: .toggleDictation)?.description ?? "—"
+        let ptt = KeyboardShortcuts.getShortcut(for: .pushToTalk)?.description ?? "—"
+        let cmd = KeyboardShortcuts.getShortcut(for: .voiceCommand)?.description ?? "—"
+        return "Bereit · \(toggle) toggle · \(ptt) halten · \(cmd) Command"
     }
 }
