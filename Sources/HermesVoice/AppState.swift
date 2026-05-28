@@ -2,6 +2,7 @@ import Foundation
 import Observation
 
 enum DictationStatus {
+    case loadingModel       // Erstmaliger ANE-Compile, kann 5–10 min dauern
     case idle
     case recording
     case transcribing
@@ -10,6 +11,7 @@ enum DictationStatus {
 
     var iconName: String {
         switch self {
+        case .loadingModel: "arrow.down.circle.dotted"
         case .idle:         "mic.fill"
         case .recording:    "mic.circle.fill"
         case .transcribing: "waveform.circle.fill"
@@ -22,11 +24,13 @@ enum DictationStatus {
 @MainActor
 @Observable
 final class AppState {
-    var status: DictationStatus = .idle
+    var status: DictationStatus = .loadingModel
     var lastTranscript: String = ""
     var cleanupEnabled: Bool = UserDefaults.standard.bool(forKey: "cleanupEnabled")
     var modelName: String = UserDefaults.standard.string(forKey: "modelName") ?? "large-v3-v20240930_626MB"
     var languageHint: String = UserDefaults.standard.string(forKey: "languageHint") ?? "de"
+    /// Zeigt an, ob das Modell schon mal erfolgreich geladen wurde (ANE-Cache vorhanden).
+    var hasLoadedBefore: Bool = UserDefaults.standard.bool(forKey: "hasLoadedBefore")
 
     private let recorder = AudioRecorder()
     private let transcriber = Transcriber()
@@ -34,7 +38,14 @@ final class AppState {
     private let cleanup = CleanupService()
 
     init() {
-        Task { await transcriber.preloadModel(name: modelName) }
+        Task { @MainActor in
+            await transcriber.preloadModel(name: modelName)
+            status = .idle
+            if !hasLoadedBefore {
+                hasLoadedBefore = true
+                UserDefaults.standard.set(true, forKey: "hasLoadedBefore")
+            }
+        }
         registerHotkey()
     }
 

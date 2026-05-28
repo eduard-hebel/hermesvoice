@@ -30,16 +30,30 @@ Wispr-Flow-Alternative für meinen eigenen Bedarf. Kein Abo, keine Cloud-Abhäng
 
 ## Aktueller Stand
 
-- [ ] Xcode 16+ installiert (Voraussetzung)
 - [x] Repo + README
-- [ ] WhisperKit-CLI lokal validiert (läuft Build im Hintergrund)
-- [ ] SwiftUI-Skeleton (MenuBarExtra + Settings)
-- [ ] KeyboardShortcuts integriert
-- [ ] AVAudioEngine-Capture
-- [ ] WhisperKit-Integration
-- [ ] Cleanup-Stage (optional, Claude Haiku)
-- [ ] Clipboard-Insertion
-- [ ] Notarized DMG-Build
+- [x] WhisperKit-CLI lokal validiert (siehe Benchmarks unten)
+- [x] SwiftUI-Skeleton (MenuBarExtra + Settings)
+- [x] KeyboardShortcuts integriert (Code)
+- [x] AVAudioEngine-Capture (Code)
+- [x] WhisperKit-Integration (Code)
+- [x] Cleanup-Stage (optional, Claude Haiku) (Code)
+- [x] Clipboard-Insertion (Code)
+- [ ] **Xcode 26.5 installiert** (Voraussetzung für Build)
+- [ ] Xcode-Projekt generieren via `xcodegen`
+- [ ] Erster Build + Run + Permission-Flow
+- [ ] Notarized DMG-Build mit Apple-Developer-ID
+
+## Benchmarks (M1 / 8 GB / macOS 26.5)
+
+Whisper Large V3 lokal, deutscher TTS-Sample (17 s Audio):
+
+| Lauf | Dauer | Anmerkung |
+|------|-------|-----------|
+| 1. Start | **~9 Min** | Einmalige Apple-Neural-Engine-Kompilierung des Modells |
+| 2. Start | **~9 Sek** | Cache aktiv: Load <5 s, Transkription 3.6 s |
+| Real-time-factor | **0.20** | 1 Sek Audio → 0.2 Sek Transkription (≈ 5× Realtime) |
+
+Qualität: praktisch fehlerfrei, deutsche Fachbegriffe (Apple Silicon, WhisperKit) korrekt, kontextuelle Korrekturen (TTS sagte „Whisper Kit", Whisper schrieb „WhisperKit"). Einziger Schönheitsfehler: „Notarization" → „Notarisation".
 
 ## Lizenz
 

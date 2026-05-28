@@ -43,6 +43,9 @@ struct MenuBarContent: View {
 
     private var statusLabel: String {
         switch state.status {
+        case .loadingModel: state.hasLoadedBefore
+                            ? "Modell lädt…"
+                            : "Erster Start: optimiere für Neural Engine (~5–10 min, einmalig)"
         case .idle:         "Bereit · ⌘⇧Space"
         case .recording:    "● Aufnahme läuft"
         case .transcribing: "Transkribiere…"

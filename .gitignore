@@ -25,3 +25,5 @@ Package.resolved
 Models/
 *.mlpackage/
 *.mlmodelc/
+# WhisperKit cached die Modelle per Default unter ~/Documents/huggingface/
+# (das ist außerhalb des Repos, hier nur als Hinweis)
