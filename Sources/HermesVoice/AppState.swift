@@ -60,10 +60,23 @@ final class AppState {
     /// Laufender Verarbeitungs-Task (Transcribe → Cleanup → Insert), abbrechbar via X im HUD.
     private var processingTask: Task<Void, Never>?
 
+    /// User hat X während Transkription gedrückt. WhisperKit honoriert Task-Cancellation
+    /// NICHT (läuft im Hintergrund weiter), daher dieses Flag: das HUD wird sofort
+    /// freigegeben und das (verspätete) Transkriptions-Ergebnis verworfen.
+    private var aborted = false
+
+    /// Maximaldauer einer Transkription, bevor sie als „hängt" gilt (Speicher-Druck o.ä.).
+    /// Danach: HUD freigeben, Audio bleibt erhalten, Hinweis auf Neu-Transkribieren.
+    private static let transcriptionTimeout: UInt64 = 180  // Sekunden
+
+    private enum ProcessingError: Error { case transcriptionTimeout }
+
     init() {
         Task { @MainActor in
+            log.notice("Preloading Whisper model: \(self.modelName, privacy: .public)")
             await transcriber.preloadModel(name: modelName)
             status = .idle
+            log.notice("Ready — status idle")
             if !hasLoadedBefore {
                 hasLoadedBefore = true
                 UserDefaults.standard.set(true, forKey: "hasLoadedBefore")
@@ -142,14 +155,39 @@ final class AppState {
     /// - während Transkribieren/Glätten: Verarbeitung abbrechen (bei Cleanup wird der
     ///   bereits erkannte Rohtext eingefügt, damit nichts verloren geht)
     func cancelCurrent() {
-        log.info("cancelCurrent() — status: \(String(describing: self.status))")
+        log.notice("cancelCurrent() — status: \(String(describing: self.status))")
         switch status {
         case .recording:
             Task { await discardRecording() }
-        case .transcribing, .cleaning:
+        case .transcribing:
+            // WhisperKit lässt sich nicht mitten im Lauf abbrechen → HUD trotzdem
+            // sofort freigeben, Ergebnis später per Flag verwerfen. Audio bleibt erhalten.
+            aborted = true
+            processingTask?.cancel()
+            SoundService.play(.stop)
+            status = .idle
+        case .cleaning:
+            // Cleanup-Subprozess IST abbrechbar → Rohtext wird eingefügt (siehe processAudio).
             processingTask?.cancel()
         default:
             break
+        }
+    }
+
+    /// Transkription mit Timeout-Wächter: läuft sie länger als `transcriptionTimeout`,
+    /// wird `transcriptionTimeout` geworfen, statt das HUD ewig hängen zu lassen.
+    /// (WhisperKit selbst läuft im Hintergrund aus; das Ergebnis wird verworfen.)
+    private func transcribeWithTimeout(_ audioURL: URL) async throws -> String {
+        let t = transcriber
+        let lang = languageHint
+        return try await withThrowingTaskGroup(of: String.self) { group in
+            group.addTask { try await t.transcribe(audioURL: audioURL, language: lang) }
+            group.addTask {
+                try await Task.sleep(nanoseconds: Self.transcriptionTimeout * 1_000_000_000)
+                throw ProcessingError.transcriptionTimeout
+            }
+            defer { group.cancelAll() }
+            return try await group.next()!
         }
     }
 
@@ -160,12 +198,12 @@ final class AppState {
     }
 
     private func stopAndProcess() async {
-        log.info("stopAndProcess() begin")
+        log.notice("stopAndProcess() begin")
         SoundService.play(.stop)
         do {
             status = .transcribing
             let audioURL = try await recorder.stop()
-            log.info("Recording stopped, file at \(audioURL.path)")
+            log.notice("Recording stopped, file at \(audioURL.path, privacy: .public)")
             RecordingStore.pruneOld()   // Aufnahme bleibt erhalten, nur alte aufräumen
             let task = Task { await processAudio(at: audioURL) }
             processingTask = task
@@ -202,13 +240,21 @@ final class AppState {
     /// Gemeinsame Pipeline: Transcribe → (optional) Cleanup → Insert.
     /// Wird von Live-Stop und Re-Transcribe geteilt.
     private func processAudio(at audioURL: URL) async {
+        aborted = false
         do {
-            var text = try await transcriber.transcribe(audioURL: audioURL, language: languageHint)
-            log.info("Transcribed (\(text.count) chars): \(text.prefix(80), privacy: .public)")
+            var text = try await transcribeWithTimeout(audioURL)
+            log.notice("Transcribed (\(text.count) chars): \(text.prefix(80), privacy: .public)")
+
+            // X während Transkription gedrückt: HUD ist schon frei (status=.idle),
+            // Ergebnis verwerfen. Audio bleibt erhalten.
+            if aborted {
+                log.notice("Aborted by user during transcription — result discarded, audio preserved")
+                return
+            }
 
             // Abbruch während/nach Transkription: nichts einfügen, Audio ist gesichert.
             if Task.isCancelled {
-                log.info("Cancelled after transcription — audio preserved, no insert")
+                log.notice("Cancelled after transcription — audio preserved, no insert")
                 status = .idle
                 return
             }
@@ -245,15 +291,29 @@ final class AppState {
                 }
             }
 
+            // X während Glätten gedrückt nachdem das HUD frei gemacht wurde: nicht einfügen.
+            if aborted {
+                log.notice("Aborted by user during cleaning — result discarded")
+                return
+            }
+
             lastTranscript = text
             HistoryStore.shared.add(text: text, mode: formatMode)
             let inserted = inserter.insert(text)
-            log.info("Insert result — pasted: \(inserted, privacy: .public)")
+            log.notice("Insert result — pasted: \(inserted, privacy: .public)")
             NotificationService.shared.showTranscript(text, insertedSuccessfully: inserted)
             status = .idle
+        } catch is ProcessingError {
+            // Transkription hängt (Timeout) — HUD freigeben, Audio bleibt erhalten.
+            log.error("Transcription timed out after \(Self.transcriptionTimeout)s — audio preserved at \(audioURL.lastPathComponent, privacy: .public)")
+            if aborted { return }
+            SoundService.play(.error)
+            status = .error("Transkription hängt (Speicher knapp?) — Audio gesichert, ⌘⇧Space-Menü → neu transkribieren")
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            if case .error = status { status = .idle }
         } catch is CancellationError {
-            log.info("Processing cancelled during transcription — audio preserved")
-            status = .idle
+            log.notice("Processing cancelled during transcription — audio preserved")
+            if !aborted { status = .idle }
         } catch {
             log.error("processAudio() failed: \(error.localizedDescription)")
             SoundService.play(.error)
