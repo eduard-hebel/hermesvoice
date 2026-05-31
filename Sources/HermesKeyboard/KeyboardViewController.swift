@@ -14,6 +14,13 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // WICHTIG: Custom Keyboards MÜSSEN ihre Höhe selbst festlegen. Ohne diese
+        // Constraint ist die echte Touch-/Hit-Fläche der Tastatur kleiner als die
+        // sichtbaren Buttons → man sieht sie, aber Tipps gehen ins Leere. Priority < 1000,
+        // damit es nicht mit System-Constraints kollidiert.
+        let heightConstraint = view.heightAnchor.constraint(equalToConstant: 240)
+        heightConstraint.priority = UILayoutPriority(999)
+        heightConstraint.isActive = true
         setupUI()
     }
 
@@ -70,6 +77,12 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func refresh() {
+        guard hasFullAccess else {
+            statusLabel.text = "⚠️ „Vollzugriff“ fehlt — Einstellungen → Allgemein → Tastatur → Tastaturen → HermesVoice → Vollzugriff erlauben."
+            insertButton.isEnabled = false
+            insertButton.alpha = 0.4
+            return
+        }
         // `hasStrings` prüft OHNE die „Eingefügt aus …"-Banner-Meldung auszulösen.
         let has = UIPasteboard.general.hasStrings
         insertButton.isEnabled = has
@@ -80,11 +93,17 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func insertTapped() {
-        guard let text = UIPasteboard.general.string, !text.isEmpty else { return }
+        guard hasFullAccess else { statusLabel.text = "Vollzugriff nötig (siehe oben)."; return }
+        guard let text = UIPasteboard.general.string, !text.isEmpty else {
+            statusLabel.text = "Zwischenablage leer — erst in HermesVoice diktieren."
+            return
+        }
         textDocumentProxy.insertText(text)
+        statusLabel.text = "Eingefügt ✓ — \(text.count) Zeichen"
     }
 
     @objc private func recordTapped() {
+        statusLabel.text = "Öffne HermesVoice …"
         openMainApp(urlString: "hermes://record")
     }
 
