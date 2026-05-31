@@ -1,32 +1,40 @@
 import UIKit
 
-/// Hermes-Tastatur (Stage 2). Hält bewusst KEIN Whisper-Modell (77-MB-RAM-Limit der
-/// Tastatur). Aufgenommen + transkribiert wird in der Haupt-App; die App legt den Text
-/// in die System-Zwischenablage. Die Tastatur liest ihn von dort und fügt ihn mit EINEM
-/// Tipp in die gerade aktive App ein — ohne dass du das Paste-Menü brauchst.
-/// (Zwischenablage statt App-Group → kein Sonder-Provisioning; braucht „Vollzugriff".)
+/// Hermes-Tastatur (Stage 2, On-Device-Flow). Hält KEIN Whisper-Modell (77-MB-RAM-Limit)
+/// und nimmt NICHT auf (iOS verbietet Mikro + App-Öffnen aus einer Tastatur). Aufgenommen
+/// + on-device transkribiert wird in der HermesVoice-App (per Action Button); die App legt
+/// den Text in die System-Zwischenablage.
+///
+/// Diese Tastatur ist eine Spezial-Tastatur OHNE Buchstaben — man wechselt nur zu ihr, um
+/// ein Diktat einzusetzen. Deshalb: sobald sie erscheint und ein FRISCHES Diktat vorliegt
+/// (Pasteboard-`changeCount` hat sich seit dem letzten Einsetzen geändert), fügt sie es
+/// AUTOMATISCH ein. So wird der Flow: Action Button → sprechen → zurückwischen → Text da.
 final class KeyboardViewController: UIInputViewController {
 
     private let statusLabel = UILabel()
     private let insertButton = UIButton(type: .system)
-    private let recordButton = UIButton(type: .system)
+    private let hintLabel = UILabel()
     private let nextButton = UIButton(type: .system)
+
+    private let ccKey = "lastInsertedPasteChangeCount"
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // WICHTIG: Custom Keyboards MÜSSEN ihre Höhe selbst festlegen. Ohne diese
-        // Constraint ist die echte Touch-/Hit-Fläche der Tastatur kleiner als die
-        // sichtbaren Buttons → man sieht sie, aber Tipps gehen ins Leere. Priority < 1000,
-        // damit es nicht mit System-Constraints kollidiert.
-        let heightConstraint = view.heightAnchor.constraint(equalToConstant: 240)
-        heightConstraint.priority = UILayoutPriority(999)
-        heightConstraint.isActive = true
+        // Custom Keyboards MÜSSEN ihre Höhe setzen, sonst sind Buttons nicht tappbar.
+        let height = view.heightAnchor.constraint(equalToConstant: 220)
+        height.priority = UILayoutPriority(999)
+        height.isActive = true
         setupUI()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refresh()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        autoInsertIfFresh()
     }
 
     override func viewWillLayoutSubviews() {
@@ -42,38 +50,35 @@ final class KeyboardViewController: UIInputViewController {
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 2
 
-        configure(insertButton, title: "Letztes Diktat einfügen", filled: true, action: #selector(insertTapped))
-        configure(recordButton, title: "🎙  Neu aufnehmen", filled: false, action: #selector(recordTapped))
-        configure(nextButton, title: "⌨︎  Tastatur wechseln", filled: false, action: #selector(nextTapped))
+        insertButton.setTitle("Diktat einfügen", for: .normal)
+        insertButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+        insertButton.backgroundColor = .systemBlue
+        insertButton.setTitleColor(.white, for: .normal)
+        insertButton.layer.cornerRadius = 12
+        insertButton.addTarget(self, action: #selector(insertTapped), for: .touchUpInside)
 
-        let stack = UIStackView(arrangedSubviews: [statusLabel, insertButton, recordButton, nextButton])
+        hintLabel.text = "So geht’s: Action Button drücken → sprechen → hierher zurückwischen. Dein Diktat wird automatisch eingesetzt."
+        hintLabel.font = .preferredFont(forTextStyle: .caption1)
+        hintLabel.textColor = .tertiaryLabel
+        hintLabel.textAlignment = .center
+        hintLabel.numberOfLines = 0
+
+        nextButton.setTitle("⌨︎  Tastatur wechseln", for: .normal)
+        nextButton.titleLabel?.font = .preferredFont(forTextStyle: .subheadline)
+        nextButton.addTarget(self, action: #selector(nextTapped), for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [statusLabel, insertButton, hintLabel, nextButton])
         stack.axis = .vertical
-        stack.spacing = 8
+        stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -14),
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -8),
-            insertButton.heightAnchor.constraint(equalToConstant: 50),
-            recordButton.heightAnchor.constraint(equalToConstant: 42),
+            insertButton.heightAnchor.constraint(equalToConstant: 52),
             nextButton.heightAnchor.constraint(equalToConstant: 38),
         ])
-    }
-
-    private func configure(_ b: UIButton, title: String, filled: Bool, action: Selector) {
-        b.setTitle(title, for: .normal)
-        b.titleLabel?.font = .preferredFont(forTextStyle: filled ? .headline : .subheadline)
-        b.layer.cornerRadius = 11
-        if filled {
-            b.backgroundColor = .systemBlue
-            b.setTitleColor(.white, for: .normal)
-        } else {
-            b.backgroundColor = .tertiarySystemBackground
-            b.setTitleColor(.label, for: .normal)
-        }
-        b.addTarget(self, action: action, for: .touchUpInside)
     }
 
     private func refresh() {
@@ -83,46 +88,38 @@ final class KeyboardViewController: UIInputViewController {
             insertButton.alpha = 0.4
             return
         }
-        // `hasStrings` prüft OHNE die „Eingefügt aus …"-Banner-Meldung auszulösen.
-        let has = UIPasteboard.general.hasStrings
+        let has = UIPasteboard.general.hasStrings   // prüft ohne Paste-Banner
         insertButton.isEnabled = has
         insertButton.alpha = has ? 1 : 0.4
-        statusLabel.text = has
-            ? "Tippe „Einfügen“, um dein letztes Diktat hier einzusetzen."
-            : "Nichts in der Zwischenablage.\nIn HermesVoice diktieren, dann hier einfügen."
+        statusLabel.text = has ? "Bereit." : "Noch kein Diktat — Action Button drücken & sprechen."
+    }
+
+    /// Setzt das frische Diktat automatisch ein, sobald die Tastatur erscheint —
+    /// aber nur EINMAL pro neuem Pasteboard-Inhalt (changeCount), damit es sich nicht
+    /// bei jedem Erscheinen wiederholt.
+    private func autoInsertIfFresh() {
+        guard hasFullAccess else { return }
+        let cc = UIPasteboard.general.changeCount
+        guard cc != UserDefaults.standard.integer(forKey: ccKey) else { return }
+        performInsert(changeCount: cc, auto: true)
     }
 
     @objc private func insertTapped() {
         guard hasFullAccess else { statusLabel.text = "Vollzugriff nötig (siehe oben)."; return }
+        performInsert(changeCount: UIPasteboard.general.changeCount, auto: false)
+    }
+
+    private func performInsert(changeCount cc: Int, auto: Bool) {
         guard let text = UIPasteboard.general.string, !text.isEmpty else {
-            statusLabel.text = "Zwischenablage leer — erst in HermesVoice diktieren."
+            if !auto { statusLabel.text = "Zwischenablage leer — erst diktieren." }
             return
         }
         textDocumentProxy.insertText(text)
-        statusLabel.text = "Eingefügt ✓ — \(text.count) Zeichen"
-    }
-
-    @objc private func recordTapped() {
-        statusLabel.text = "Öffne HermesVoice …"
-        openMainApp(urlString: "hermes://record")
+        UserDefaults.standard.set(cc, forKey: ccKey)   // nicht nochmal automatisch einsetzen
+        statusLabel.text = "Eingefügt ✓ (\(text.count) Zeichen)"
     }
 
     @objc private func nextTapped() {
         advanceToNextInputMode()
-    }
-
-    /// Öffnet die Haupt-App. Tastatur-Erweiterungen haben kein `extensionContext.open`,
-    /// daher der bewährte Responder-Chain-Weg über `openURL:`.
-    private func openMainApp(urlString: String) {
-        guard let url = URL(string: urlString) else { return }
-        let selector = sel_registerName("openURL:")
-        var responder: UIResponder? = self
-        while let r = responder {
-            if r.responds(to: selector) {
-                _ = r.perform(selector, with: url)
-                return
-            }
-            responder = r.next
-        }
     }
 }
