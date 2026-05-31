@@ -34,7 +34,7 @@ final class AppState {
     var cleanupEnabled: Bool = UserDefaults.standard.bool(forKey: "cleanupEnabled")
     /// Whisper-Modell. Wechsel in den Einstellungen wird persistiert UND die Pipeline
     /// neu geladen — sonst bliebe die Auswahl wirkungslos (altes Modell weiter aktiv).
-    var modelName: String = UserDefaults.standard.string(forKey: "modelName") ?? "large-v3-v20240930_626MB" {
+    var modelName: String = UserDefaults.standard.string(forKey: "modelName") ?? "large-v3-v20240930_turbo_632MB" {
         didSet {
             guard modelName != oldValue else { return }
             UserDefaults.standard.set(modelName, forKey: "modelName")

@@ -26,9 +26,10 @@ struct SettingsView: View {
                     Text("Auto").tag("")
                 }
                 Picker("Whisper-Modell", selection: $state.modelName) {
-                    Text("Large V3 (beste Qualität, ~626 MB)").tag("large-v3-v20240930_626MB")
-                    Text("Medium (schneller, ~325 MB)").tag("medium")
-                    Text("Small (am schnellsten, ~150 MB)").tag("small")
+                    Text("Large V3 Turbo (empfohlen — schnell, beste Qualität, ~632 MB)").tag("large-v3-v20240930_turbo_632MB")
+                    Text("Large V3 (beste Qualität, langsamer, ~626 MB)").tag("large-v3-v20240930_626MB")
+                    Text("Medium (schnell, ~325 MB)").tag("medium")
+                    Text("Small (am schnellsten, geringere Qualität, ~150 MB)").tag("small")
                 }
             }
 
