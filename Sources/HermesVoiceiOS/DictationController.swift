@@ -33,6 +33,12 @@ final class DictationController {
         }
     }
 
+    /// Nur für SwiftUI-Previews: setzt direkt einen Status, OHNE das Whisper-Modell
+    /// zu laden (sonst würde der Xcode-Canvas am Modell-Load hängen).
+    init(previewStatus: Status) {
+        status = previewStatus
+    }
+
     /// Start/Stop wie auf dem Mac: idle → aufnehmen, recording → verarbeiten.
     func toggle() async {
         switch status {

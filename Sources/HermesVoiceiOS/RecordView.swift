@@ -72,3 +72,20 @@ struct RecordView: View {
         .animation(.easeOut(duration: 0.08), value: level)
     }
 }
+
+// MARK: - Xcode-Canvas-Vorschau (zeigt die Screens live, ohne iPhone)
+
+#Preview("1 · Bereit") {
+    NavigationStack { RecordView(controller: DictationController(previewStatus: .idle)) }
+}
+
+#Preview("2 · Aufnahme läuft") {
+    NavigationStack { RecordView(controller: DictationController(previewStatus: .recording)) }
+}
+
+#Preview("3 · Fertig – kopiert") {
+    let controller = DictationController(previewStatus: .idle)
+    controller.lastText = "Hey, kannst du mir bitte die Unterlagen für das Meeting morgen früh schicken? Am besten gleich heute Abend noch."
+    controller.showCopied = true
+    return NavigationStack { RecordView(controller: controller) }
+}
