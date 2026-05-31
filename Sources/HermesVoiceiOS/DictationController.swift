@@ -97,6 +97,7 @@ final class DictationController {
             lastText = text
             HistoryStore.shared.add(text: text, mode: .free)
             UIPasteboard.general.string = text
+            PendingStore.write(text)   // für die Hermes-Tastatur (Ein-Tipp-Einfügen)
             showCopied = true
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             status = .idle

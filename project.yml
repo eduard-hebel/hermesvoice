@@ -84,9 +84,12 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: de.hermes.voice.ios
             CFBundleURLSchemes: [hermes]
+    entitlements:
+      path: Sources/HermesVoiceiOS/HermesVoiceiOS.entitlements
     dependencies:
       - package: WhisperKit
         product: WhisperKit
+      - target: HermesKeyboard   # Tastatur-Erweiterung wird in die App eingebettet
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.hermes.voice.ios
@@ -98,3 +101,42 @@ targets:
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+  HermesKeyboard:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      # Nur die Tastatur selbst — KEIN HermesCore/WhisperKit (77-MB-RAM-Limit). Die
+      # Tastatur liest das Diktat aus der System-Zwischenablage, kein geteilter Store nötig.
+      - path: Sources/HermesKeyboard
+        excludes:
+          - "*.entitlements"
+          - "Info.plist"
+    info:
+      path: Sources/HermesKeyboard/Info.plist
+      properties:
+        CFBundleDisplayName: HermesVoice
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            PrimaryLanguage: de-DE
+            RequestsOpenAccess: true
+    entitlements:
+      path: Sources/HermesKeyboard/HermesKeyboard.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.hermes.voice.ios.keyboard
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1"
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        SWIFT_VERSION: "5.10"
