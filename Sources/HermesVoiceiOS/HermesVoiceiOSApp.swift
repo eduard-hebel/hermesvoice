@@ -13,6 +13,8 @@ struct HermesVoiceiOSApp: App {
                     .tabItem { Label("Diktat", systemImage: "mic.fill") }
                 NavigationStack { HistoryView() }
                     .tabItem { Label("Verlauf", systemImage: "clock") }
+                NavigationStack { SettingsView() }
+                    .tabItem { Label("Einstellungen", systemImage: "gearshape") }
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { handleAutoRecord() }

@@ -32,7 +32,9 @@ final class DictationController {
     private static let bundledModelFolder = "openai_whisper-base"
     /// Fallback-Modell, falls (wider Erwarten) nichts gebundelt ist → Download aus dem Netz.
     private let fallbackModelName = UserDefaults.standard.string(forKey: "modelName") ?? "base"
-    private let languageHint = UserDefaults.standard.string(forKey: "languageHint") ?? "de"
+    /// Wird bei JEDER Transkription frisch gelesen, damit die Sprach-Auswahl aus den
+    /// Einstellungen sofort greift (ohne Neustart). "" = Whisper erkennt automatisch.
+    private var languageHint: String { UserDefaults.standard.string(forKey: "languageHint") ?? "de" }
 
     init() {
         Task { @MainActor in

@@ -9,17 +9,22 @@ actor AudioRecorder {
         let engine = AVAudioEngine()
         let input = engine.inputNode
 
-        // macOS Voice Processing aktivieren: AGC + Noise Suppression +
-        // Echo Cancellation. Bringt 1–2 % WER bei Mikrofonen mit Nebengeräuschen.
-        // Wirft, falls die Hardware das nicht unterstützt — dann fallen wir
-        // einfach auf raw audio zurück, kein Crash.
+        // Voice Processing (AGC + Noise Suppression + Echo Cancellation) ist eine
+        // macOS-Optimierung. Auf iOS verbiegt es das Eingangs-Format der AVAudioEngine
+        // und lässt `installTap` beim Aufnahmestart HART crashen (App fliegt zum
+        // Homescreen). Darum NUR auf macOS aktivieren.
+        #if os(macOS)
         do {
             try input.setVoiceProcessingEnabled(true)
         } catch {
             // Hardware unterstützt es nicht, weiter mit rohem Audio
         }
+        #endif
 
-        let format = input.outputFormat(forBus: 0)
+        // Auf iOS das ECHTE Hardware-Eingangsformat des Input-Node nehmen — exakt das,
+        // was `installTap` erwartet (sonst Format-Mismatch → Crash). Auf macOS ist
+        // outputFormat == inputFormat, daher identisch.
+        let format = input.inputFormat(forBus: 0)
 
         // In den persistenten Recordings-Ordner schreiben (nicht temp), damit die
         // Aufnahme als Sicherheitsnetz erhalten bleibt und neu transkribiert werden kann.
