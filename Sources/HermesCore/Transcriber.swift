@@ -34,6 +34,21 @@ actor Transcriber {
         }
     }
 
+    /// Lädt ein Modell aus einem LOKALEN Ordner (z.B. in die iOS-App gebundelt) —
+    /// `download: false` schaltet jeden HuggingFace-Download ab. Damit gibt es beim
+    /// Erststart KEINE Netzwerk-Wartezeit (das war die Ursache für „Modell lädt … ewig":
+    /// WhisperKit zog das Modell sonst beim ersten Start aus dem Netz).
+    func preloadBundled(folder: URL) async {
+        pipeline = nil
+        do {
+            let config = WhisperKitConfig(modelFolder: folder.path, prewarm: true, load: true, download: false)
+            pipeline = try await WhisperKit(config)
+            Self.log.notice("WhisperKit bundled model loaded: \(folder.lastPathComponent, privacy: .public)")
+        } catch {
+            Self.log.error("WhisperKit bundled load failed for \(folder.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     func transcribe(audioURL: URL, language: String) async throws -> String {
         // Kein stiller Fallback auf `WhisperKit()` ohne Modell-Argument: das würde das
         // DEFAULT-Modell laden und ggf. einen Download von HuggingFace antreten, der

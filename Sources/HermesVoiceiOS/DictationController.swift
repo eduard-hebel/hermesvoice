@@ -23,16 +23,25 @@ final class DictationController {
 
     private let recorder = AudioRecorder()
     private let transcriber = Transcriber.shared
-    // Auf dem iPhone (8 GB RAM) ist large-v3-turbo zu schwer — der erste ANE-Kompile
-    // erdrückt den Speicher und friert die App ein (gleiche Lektion wie auf dem Mac).
-    // Small lädt in Sekunden, läuft flott und reicht fürs Diktat. Über UserDefaults
-    // ("modelName") jederzeit übersteuerbar (z.B. auf "medium" für bessere Erkennung).
-    private let modelName = UserDefaults.standard.string(forKey: "modelName") ?? "small"
+
+    /// In die App GEBUNDELTES Whisper-Modell (siehe project.yml → Models/<Ordner>).
+    /// Das ist der Kern-Fix: WhisperKit lud das Modell sonst beim ersten Start aus dem
+    /// Netz (~Hunderte MB) → quälend langsam/stockend → „Modell lädt … ewig". Gebundelt =
+    /// kein Download, sofortiger Start, offline. base = klein/schnell; später auf ein
+    /// größeres Modell mit besserer Deutsch-Qualität tauschbar (Ordner + diesen Namen ändern).
+    private static let bundledModelFolder = "openai_whisper-base"
+    /// Fallback-Modell, falls (wider Erwarten) nichts gebundelt ist → Download aus dem Netz.
+    private let fallbackModelName = UserDefaults.standard.string(forKey: "modelName") ?? "base"
     private let languageHint = UserDefaults.standard.string(forKey: "languageHint") ?? "de"
 
     init() {
         Task { @MainActor in
-            await transcriber.preloadModel(name: modelName)
+            if let folder = Bundle.main.resourceURL?.appendingPathComponent(Self.bundledModelFolder),
+               FileManager.default.fileExists(atPath: folder.path) {
+                await transcriber.preloadBundled(folder: folder)   // gebundelt: kein Download
+            } else {
+                await transcriber.preloadModel(name: fallbackModelName)  // Notfall: aus dem Netz
+            }
             status = .idle
         }
     }
