@@ -31,6 +31,7 @@ targets:
       - path: Sources/HermesVoice
         excludes:
           - "*.entitlements"
+      - path: Sources/HermesCore
     info:
       path: Sources/HermesVoice/Info.plist
       properties:
