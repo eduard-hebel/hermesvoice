@@ -1,5 +1,4 @@
 import Foundation
-import AppKit
 import Observation
 import OSLog
 
@@ -55,12 +54,6 @@ final class HistoryStore {
     func clear() {
         entries.removeAll()
         save()
-    }
-
-    /// Kopiert einen Eintrag zurück ins Clipboard (für Re-Insert per ⌘V).
-    func copyToClipboard(_ entry: HistoryEntry) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(entry.text, forType: .string)
     }
 
     private func load() {

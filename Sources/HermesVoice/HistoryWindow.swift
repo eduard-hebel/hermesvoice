@@ -47,7 +47,7 @@ struct HistoryWindow: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button {
-                            HistoryStore.shared.copyToClipboard(entry)
+                            Clipboard.copy(entry.text)
                             copied = true
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
                         } label: {

@@ -36,7 +36,7 @@ struct MenuBarContent: View {
                 Menu("Schnell kopieren") {
                     ForEach(history.prefix(15)) { entry in
                         Button(entry.preview) {
-                            HistoryStore.shared.copyToClipboard(entry)
+                            Clipboard.copy(entry.text)
                         }
                     }
                     Divider()
