@@ -23,7 +23,11 @@ final class DictationController {
 
     private let recorder = AudioRecorder()
     private let transcriber = Transcriber.shared
-    private let modelName = UserDefaults.standard.string(forKey: "modelName") ?? "large-v3-v20240930_turbo_632MB"
+    // Auf dem iPhone (8 GB RAM) ist large-v3-turbo zu schwer — der erste ANE-Kompile
+    // erdrückt den Speicher und friert die App ein (gleiche Lektion wie auf dem Mac).
+    // Small lädt in Sekunden, läuft flott und reicht fürs Diktat. Über UserDefaults
+    // ("modelName") jederzeit übersteuerbar (z.B. auf "medium" für bessere Erkennung).
+    private let modelName = UserDefaults.standard.string(forKey: "modelName") ?? "small"
     private let languageHint = UserDefaults.standard.string(forKey: "languageHint") ?? "de"
 
     init() {
