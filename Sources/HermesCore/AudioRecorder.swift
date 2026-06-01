@@ -37,7 +37,8 @@ actor AudioRecorder {
             interleaved: false
         )
 
-        input.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in
+        // Kleiner Puffer = ~4× mehr Pegel-Updates/Sekunde → flüssigere, reaktivere Waveform.
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             try? file.write(from: buffer)
             AudioMeter.shared.report(buffer: buffer)
         }

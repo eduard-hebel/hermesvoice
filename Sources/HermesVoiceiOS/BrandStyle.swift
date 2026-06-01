@@ -106,22 +106,26 @@ struct WaveformView: View {
     private let meter = AudioMeter.shared
 
     var body: some View {
-        let levels = meter.levels   // Lesen im body = Observation-Abhängigkeit
-        return Canvas { ctx, size in
-            let n = levels.count
-            guard n > 0 else { return }
-            let barWidth: CGFloat = 4
-            let gap = n > 1 ? (size.width - CGFloat(n) * barWidth) / CGFloat(n - 1) : 0
-            let midY = size.height / 2
-            let grad = Gradient(colors: [Brand.recordA, Brand.recordB])
-            for (i, lvl) in levels.enumerated() {
-                let h = max(3, CGFloat(lvl) * size.height)
-                let x = CGFloat(i) * (barWidth + gap)
-                let rect = CGRect(x: x, y: midY - h / 2, width: barWidth, height: h)
-                ctx.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2),
-                         with: .linearGradient(grad,
-                                               startPoint: CGPoint(x: 0, y: midY - size.height / 2),
-                                               endPoint: CGPoint(x: 0, y: midY + size.height / 2)))
+        // TimelineView(.animation) erzwingt einen Redraw pro Display-Frame → die Balken
+        // folgen dem Live-Pegel sofort, unabhängig von SwiftUIs Observation-Timing.
+        TimelineView(.animation) { _ in
+            Canvas { ctx, size in
+                let levels = AudioMeter.shared.levels   // pro Frame frisch gelesen
+                let n = levels.count
+                guard n > 0 else { return }
+                let barWidth: CGFloat = 4
+                let gap = n > 1 ? (size.width - CGFloat(n) * barWidth) / CGFloat(n - 1) : 0
+                let midY = size.height / 2
+                let grad = Gradient(colors: [Brand.recordA, Brand.recordB])
+                for (i, lvl) in levels.enumerated() {
+                    let h = max(3, CGFloat(lvl) * size.height)   // gespiegelt um die Mitte
+                    let x = CGFloat(i) * (barWidth + gap)
+                    let rect = CGRect(x: x, y: midY - h / 2, width: barWidth, height: h)
+                    ctx.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2),
+                             with: .linearGradient(grad,
+                                                   startPoint: CGPoint(x: 0, y: midY - size.height / 2),
+                                                   endPoint: CGPoint(x: 0, y: midY + size.height / 2)))
+                }
             }
         }
         .accessibilityHidden(true)

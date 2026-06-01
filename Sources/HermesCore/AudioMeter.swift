@@ -26,13 +26,14 @@ final class AudioMeter {
     nonisolated func report(buffer: AVAudioPCMBuffer) {
         let rms = Self.computeRMS(buffer)
         Task { @MainActor in
-            // Glätten damit der Pegel nicht zu sehr springt.
-            let smoothed = self.level * 0.6 + rms * 0.4
-            self.level = smoothed
-            // Neuen Wert rechts einschieben, ältesten links rausschieben (scrollt).
+            // Halo: ruhig geglättet (sanftes Pulsieren).
+            self.level = self.level * 0.7 + rms * 0.3
+            // Waveform: schneller Anstieg, sanftes Abklingen → die Balken springen sofort
+            // hoch, wenn Stimme kommt, und fallen weich ab (wie ein echter Pegelmesser).
             var next = self.levels
+            let prev = next.last ?? 0
             next.removeFirst()
-            next.append(smoothed)
+            next.append(max(rms, prev * 0.80))
             self.levels = next
         }
     }
@@ -47,7 +48,8 @@ final class AudioMeter {
             sum += sample * sample
         }
         let rms = sqrt(sum / Float(frameLength))
-        // Loud-ish speech ≈ 0.1–0.3 RMS, normalize on a soft curve
-        return min(1.0, rms * 6.0)
+        // Loud-ish speech ≈ 0.1–0.3 RMS → kräftig skalieren, damit die Balken sichtbar
+        // ausschlagen; perceptual angehoben (^0.7), damit auch leise Töne reagieren.
+        return min(1.0, powf(min(1.0, rms * 8.0), 0.7))
     }
 }
