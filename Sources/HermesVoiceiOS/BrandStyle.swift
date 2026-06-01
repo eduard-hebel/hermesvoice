@@ -23,6 +23,41 @@ enum Brand {
     }
 }
 
+// MARK: - Erscheinungsbild (Hell / Dunkel / System)
+
+/// In den Einstellungen wählbar, app-weit via `.preferredColorScheme` angewandt.
+/// RawRepresentable<String> → direkt in `@AppStorage` speicherbar.
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: "Auto"
+        case .light:  "Hell"
+        case .dark:   "Dunkel"
+        }
+    }
+
+    /// nil = dem System folgen.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light:  .light
+        case .dark:   .dark
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .system: "circle.lefthalf.filled"
+        case .light:  "sun.max"
+        case .dark:   "moon"
+        }
+    }
+}
+
 // MARK: - Glass-Oberfläche (iOS 26 Liquid Glass, sonst Material)
 
 extension View {

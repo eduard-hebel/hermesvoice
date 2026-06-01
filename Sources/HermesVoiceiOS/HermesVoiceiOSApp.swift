@@ -5,6 +5,7 @@ struct HermesVoiceiOSApp: App {
     @State private var controller = DictationController()
     @Environment(\.scenePhase) private var scenePhase
     private let autoRecord = AutoRecordSignal.shared
+    @AppStorage("appearance") private var appearance: AppAppearance = .system
 
     var body: some Scene {
         WindowGroup {
@@ -17,6 +18,7 @@ struct HermesVoiceiOSApp: App {
                     .tabItem { Label("Einstellungen", systemImage: "gearshape") }
             }
             .tint(Brand.accent)
+            .preferredColorScheme(appearance.colorScheme)
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { handleAutoRecord() }
             }

@@ -7,9 +7,19 @@ import SwiftUI
 struct SettingsView: View {
     // Gleicher UserDefaults-Key, den DictationController bei jeder Transkription liest.
     @AppStorage("languageHint") private var languageHint: String = "de"
+    // App-weites Erscheinungsbild (gleicher Key wie in HermesVoiceiOSApp).
+    @AppStorage("appearance") private var appearance: AppAppearance = .system
 
     var body: some View {
         Form {
+            Section("Darstellung") {
+                Picker("Erscheinungsbild", selection: $appearance) {
+                    ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
             Section("Sprache") {
                 Picker(selection: $languageHint) {
                     Text("Deutsch").tag("de")
