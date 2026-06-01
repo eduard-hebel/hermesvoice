@@ -13,7 +13,7 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "Developer ID Application"
-    DEVELOPMENT_TEAM: PX8L6667HC
+    DEVELOPMENT_TEAM: ""
 
 packages:
   WhisperKit:
