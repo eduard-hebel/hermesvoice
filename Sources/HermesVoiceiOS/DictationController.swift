@@ -29,9 +29,9 @@ final class DictationController {
     /// Netz (~Hunderte MB) → quälend langsam/stockend → „Modell lädt … ewig". Gebundelt =
     /// kein Download, sofortiger Start, offline. base = klein/schnell; später auf ein
     /// größeres Modell mit besserer Deutsch-Qualität tauschbar (Ordner + diesen Namen ändern).
-    private static let bundledModelFolder = "openai_whisper-base"
+    private static let bundledModelFolder = "openai_whisper-small"
     /// Fallback-Modell, falls (wider Erwarten) nichts gebundelt ist → Download aus dem Netz.
-    private let fallbackModelName = UserDefaults.standard.string(forKey: "modelName") ?? "base"
+    private let fallbackModelName = UserDefaults.standard.string(forKey: "modelName") ?? "small"
     /// Wird bei JEDER Transkription frisch gelesen, damit die Sprach-Auswahl aus den
     /// Einstellungen sofort greift (ohne Neustart). "" = Whisper erkennt automatisch.
     private var languageHint: String { UserDefaults.standard.string(forKey: "languageHint") ?? "de" }
