@@ -9,6 +9,11 @@ struct RecordView: View {
 
     private var isRecording: Bool { controller.status == .recording }
     private var busy: Bool { controller.status == .transcribing || controller.status == .loadingModel }
+    /// Ergebnis-Zustand: fertig + es liegt ein Transkript vor. Dann ist die Karte der Held.
+    private var showResult: Bool { controller.status == .idle && !controller.lastText.isEmpty }
+
+    @Namespace private var heroNS
+    private let heroID = "hero"
 
     var body: some View {
         ZStack {
@@ -23,14 +28,38 @@ struct RecordView: View {
                         .padding(.horizontal, 8)
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 }
-                ZStack {
-                    if isRecording { ListeningHalo() }
-                    MicButton(isRecording: isRecording, busy: busy) {
-                        Task { await controller.toggle() }
+                // Hero-Slot: Mic-Button und Transcript-Karte teilen dieselbe
+                // matchedGeometry-ID → beim Übergang „morpht" das eine ins andere.
+                if showResult {
+                    transcriptCard
+                        .matchedGeometryEffect(id: heroID, in: heroNS)
+                } else {
+                    ZStack {
+                        if isRecording { ListeningHalo() }
+                        MicButton(isRecording: isRecording, busy: busy) {
+                            Task { await controller.toggle() }
+                        }
                     }
+                    .matchedGeometryEffect(id: heroID, in: heroNS)
                 }
+
                 if controller.showCopied { copiedPill }
-                if !controller.lastText.isEmpty && !isRecording { transcriptCard }
+
+                // Im Ergebnis-Zustand ist der große Mic zur Karte geworden → eigener
+                // Button fürs nächste Diktat.
+                if showResult {
+                    Button {
+                        Task { await controller.toggle() }
+                    } label: {
+                        Label("Neues Diktat", systemImage: "mic.fill")
+                            .font(.callout.weight(.semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Brand.accent)
+                    .controlSize(.large)
+                    .transition(.opacity)
+                }
+
                 Spacer()
             }
             .padding(.horizontal, 24)
@@ -39,8 +68,8 @@ struct RecordView: View {
         .navigationTitle("HermesVoice")
         .navigationBarTitleDisplayMode(.inline)
         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: controller.showCopied)
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: controller.lastText)
-        .animation(.easeInOut(duration: 0.35), value: controller.status)
+        .animation(.spring(response: 0.5, dampingFraction: 0.82), value: showResult)   // Hero-Morph
+        .animation(.spring(response: 0.42, dampingFraction: 0.85), value: isRecording)
         // Differenzierte Haptik je Zustandswechsel: Start / Stop / Fertig / Fehler.
         .sensoryFeedback(trigger: controller.status) { old, new in
             switch new {
@@ -147,7 +176,6 @@ struct RecordView: View {
         }
         .padding(18)
         .contentCard()
-        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
 
