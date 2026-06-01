@@ -23,8 +23,11 @@ struct RecordView: View {
                         .padding(.horizontal, 8)
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 }
-                MicButton(isRecording: isRecording, busy: busy) {
-                    Task { await controller.toggle() }
+                ZStack {
+                    if isRecording { ListeningHalo() }
+                    MicButton(isRecording: isRecording, busy: busy) {
+                        Task { await controller.toggle() }
+                    }
                 }
                 if controller.showCopied { copiedPill }
                 if !controller.lastText.isEmpty && !isRecording { transcriptCard }

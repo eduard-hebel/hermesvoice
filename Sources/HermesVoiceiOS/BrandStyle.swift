@@ -128,6 +128,26 @@ struct WaveformView: View {
     }
 }
 
+/// Weicher, pegelreaktiver „Zuhören"-Schein hinter dem Mic-Button: pulsiert mit der
+/// Stimme → man sieht, dass das iPhone gerade hört. EIN günstiger Effekt (kein
+/// Ring-Stapel). Liest AudioMeter direkt → nur diese View rendert neu. reduceMotion-fest.
+struct ListeningHalo: View {
+    private let meter = AudioMeter.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let level = CGFloat(meter.level)   // Lesen im body = Observation-Abhängigkeit
+        return Circle()
+            .fill(Brand.recordA)
+            .frame(width: 180, height: 180)
+            .scaleEffect(reduceMotion ? 1.18 : 1.0 + min(level, 1) * 0.7)
+            .opacity(reduceMotion ? 0.22 : 0.16 + min(level, 1) * 0.4)
+            .blur(radius: 24)
+            .animation(.easeOut(duration: 0.12), value: level)
+            .accessibilityHidden(true)
+    }
+}
+
 /// Großer Diktat-Auslöser. Idle = Brand-Gradient mit dezentem, snappy „Atmen", Aufnahme =
 /// warmer Gradient (die Bewegung übernimmt die Waveform), beides mit Tiefe (getönter
 /// Schatten + Highlight). Kein Pegel-Scale mehr → nur die Waveform bewegt sich.
