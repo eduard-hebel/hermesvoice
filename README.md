@@ -1,60 +1,97 @@
 # HermesVoice
 
-Eigene macOS-Diktat-App. Überall Spracheingabe per Global-Shortcut. Lokal, keine Pro-Sekunde-Kosten, native macOS-App.
+**Private, on-device voice dictation for macOS and iPhone.** A free, offline alternative to Wispr Flow / Superwhisper: speak, get text, paste anywhere — your audio never leaves the device.
 
-## Ziel
+![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%7C%20iOS%2018%2B-blue)
+![Swift](https://img.shields.io/badge/Swift-5.10-orange)
+![Engine](https://img.shields.io/badge/engine-WhisperKit%20(on--device)-black)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-Wispr-Flow-Alternative für meinen eigenen Bedarf. Kein Abo, keine Cloud-Abhängigkeit (es sei denn opt-in Cleanup), native Mac-Polish.
+Transcription runs **100% on-device** via [WhisperKit](https://github.com/argmaxinc/WhisperKit) (OpenAI Whisper on the Apple Neural Engine). No cloud, no account, no API key, works in airplane mode.
 
-## Architektur
+---
 
-| Schicht | Komponente | Begründung |
-|---------|-----------|------------|
-| UI | Swift + SwiftUI + MenuBarExtra | Native Polish, kleine Binary, App Store-fähig |
-| Global Hotkey | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) | macOS-Standard im Mac-OSS-Ökosystem |
-| Audio | AVFoundation (`AVAudioEngine`) | Native Mic-Capture, niedrige Latenz |
-| STT | [WhisperKit](https://github.com/argmaxinc/WhisperKit) mit `large-v3` | Lokal auf Apple Neural Engine, keine API-Kosten, hohe Qualität |
-| Cleanup (optional) | Claude Haiku 4.5 via Anthropic API | Toggle, default off. Bei aktivem Toggle: Versprecher raus, Sätze gerade ziehen |
-| Insertion | `NSPasteboard` + simulierter ⌘V | Funktioniert überall wo Text-Input geht |
+## Why
 
-## Permissions (einmalig)
+Cloud dictation apps lose your transcript on a Wi-Fi blip, truncate long brain-dumps, charge a subscription, and send your voice to someone else's servers. HermesVoice does the same job locally: it can't lose your words to the network, it's free, and nothing leaves your phone or Mac.
 
-- Microphone
-- Accessibility (für ⌘V Simulation)
-- Input Monitoring (für Global Hotkey)
+The one honest trade-off vs. cloud apps: no server-side LLM "polish." Whisper's `large-v3-turbo` already punctuates naturally, and a built-in personal dictionary handles names, acronyms, and dialect.
 
-## Hardware
+## Features
 
-- Target: Apple Silicon (M1+), macOS 14+ wegen WhisperKit
-- RAM-Footprint im Idle: ~50 MB. Bei aktivem Modell: ~2–3 GB (Whisper Large V3)
+**Both platforms**
+- On-device Whisper transcription (no internet, no key, no account)
+- Multilingual + code-switching (mixing e.g. English terms into German) — native to Whisper
+- Local history of recent dictations
 
-## Aktueller Stand
+**macOS** (menu-bar app)
+- Global hotkey to start/stop dictation
+- Pastes into the focused app via the Accessibility API (system-wide)
+- Optional text cleanup via the local Claude CLI (no API key — uses your Max plan subprocess)
+- Vocabulary that learns from your corrections
 
-- [x] Repo + README
-- [x] WhisperKit-CLI lokal validiert (siehe Benchmarks unten)
-- [x] SwiftUI-Skeleton (MenuBarExtra + Settings)
-- [x] KeyboardShortcuts integriert (Code)
-- [x] AVAudioEngine-Capture (Code)
-- [x] WhisperKit-Integration (Code)
-- [x] Cleanup-Stage (optional, Claude Haiku) (Code)
-- [x] Clipboard-Insertion (Code)
-- [ ] **Xcode 26.5 installiert** (Voraussetzung für Build)
-- [ ] Xcode-Projekt generieren via `xcodegen`
-- [ ] Erster Build + Run + Permission-Flow
-- [ ] Notarized DMG-Build mit Apple-Developer-ID
+**iPhone**
+- **Action Button** trigger → record in any context
+- **Custom keyboard** that auto-inserts the last dictation into any app (clipboard-based, aligned with iOS 26.4's "swipe back to your app" flow)
+- **Live waveform** + level-reactive "listening" pulse while recording
+- **Personal dictionary** — `heard → correct` post-correction for names, acronyms, dialect (e.g. *oida*)
+- Light / Dark / System appearance, Liquid Glass UI (iOS 26)
+- `large-v3-turbo` (632 MB, quantized) bundled for offline first-launch
 
-## Benchmarks (M1 / 8 GB / macOS 26.5)
+## Tech stack
 
-Whisper Large V3 lokal, deutscher TTS-Sample (17 s Audio):
+Swift · SwiftUI · WhisperKit · AVFoundation · AppIntents (Action Button) · UIInputViewController (keyboard) · [XcodeGen](https://github.com/yonaskolb/XcodeGen) for the project definition.
 
-| Lauf | Dauer | Anmerkung |
-|------|-------|-----------|
-| 1. Start | **~9 Min** | Einmalige Apple-Neural-Engine-Kompilierung des Modells |
-| 2. Start | **~9 Sek** | Cache aktiv: Load <5 s, Transkription 3.6 s |
-| Real-time-factor | **0.20** | 1 Sek Audio → 0.2 Sek Transkription (≈ 5× Realtime) |
+## Project structure
 
-Qualität: praktisch fehlerfrei, deutsche Fachbegriffe (Apple Silicon, WhisperKit) korrekt, kontextuelle Korrekturen (TTS sagte „Whisper Kit", Whisper schrieb „WhisperKit"). Einziger Schönheitsfehler: „Notarization" → „Notarisation".
+```
+Sources/
+  HermesCore/        # shared, platform-agnostic core (Transcriber, AudioRecorder,
+                     #   AudioMeter, History/Recording/Vocabulary/UserDictionary stores)
+  HermesVoice/       # macOS menu-bar app
+  HermesVoiceiOS/    # iOS app (RecordView, DictationController, DictionaryView, …)
+  HermesKeyboard/    # iOS keyboard extension (clipboard auto-insert)
+Models/              # WhisperKit model (gitignored — see Setup)
+docs/POLISH.md       # design system / UI rules
+project.yml          # XcodeGen project definition (.xcodeproj is generated, gitignored)
+```
 
-## Lizenz
+## Setup
 
-Privat (vorerst).
+Requires **macOS + Xcode 26** and an Apple developer team for device signing.
+
+```bash
+# 1. Install XcodeGen
+brew install xcodegen
+
+# 2. Download the on-device Whisper model (gitignored — too large for git)
+./scripts/download-model.sh        # ~646 MB into Models/
+
+# 3. Generate the Xcode project
+xcodegen generate
+
+# 4. Open it
+open HermesVoice.xcodeproj
+```
+
+In Xcode pick a scheme — **HermesVoice** (macOS) or **HermesVoiceiOS** (iPhone) — and Run.
+
+**iOS signing:** set your team in `project.yml` (`DEVELOPMENT_TEAM`) or via Xcode's Signing & Capabilities, then `xcodegen generate` again. Build **Release** for a physical device (Debug dylibs don't launch standalone).
+
+**iPhone keyboard (optional):** Settings → General → Keyboard → Keyboards → add *HermesVoice* and allow **Full Access** (needed to read the clipboard). Bind the Action Button to the *HermesVoice* shortcut to start dictation hands-free.
+
+## How it works on iPhone (the iOS reality)
+
+iOS keyboard extensions are capped at ~77 MB RAM and can't reliably use the mic, so Whisper can't run *inside* the keyboard. Instead: the **app** records + transcribes on-device (triggered by the Action Button), copies the result, and the **HermesVoice keyboard** inserts it into whatever app you're in. That's one app-hop per dictation — the same limitation every on-device iOS dictation tool has.
+
+## Swapping the model
+
+The bundled model folder name lives in `Sources/HermesVoiceiOS/DictationController.swift` (`bundledModelFolder`) and in `project.yml`. To use the full 1.6 GB `openai_whisper-large-v3-v20240930_turbo` (slightly better, more RAM), download that folder instead and update both references.
+
+## Credits
+
+Built on [WhisperKit](https://github.com/argmaxinc/WhisperKit) by Argmax. Models from the [argmaxinc/whisperkit-coreml](https://huggingface.co/argmaxinc/whisperkit-coreml) Hugging Face repo.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
