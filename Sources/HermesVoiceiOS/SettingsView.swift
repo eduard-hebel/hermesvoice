@@ -32,7 +32,7 @@ struct SettingsView: View {
 
             Section("Modell") {
                 LabeledContent {
-                    Text("small · on-device")
+                    Text("large-v3-turbo · on-device")
                         .foregroundStyle(.secondary)
                 } label: {
                     Label("Whisper", systemImage: "cpu")

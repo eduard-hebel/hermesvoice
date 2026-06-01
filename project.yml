@@ -70,7 +70,7 @@ targets:
       - path: Sources/HermesCore
       # On-device Whisper-Modell IN die App gebundelt (Ordner-Referenz, 1:1 kopiert) →
       # kein HuggingFace-Download beim Erststart, sofortiger Start, offline.
-      - path: Models/openai_whisper-small
+      - path: Models/openai_whisper-large-v3-v20240930_turbo_632MB
         type: folder
         buildPhase: resources
     info:
