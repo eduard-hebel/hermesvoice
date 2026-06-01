@@ -20,6 +20,11 @@ struct HistoryView: View {
                 List {
                     ForEach(store.entries) { entry in
                         row(entry)
+                            .scrollTransition { content, phase in
+                                content
+                                    .opacity(phase.isIdentity ? 1 : 0.35)
+                                    .scaleEffect(phase.isIdentity ? 1 : 0.95)
+                            }
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             .listRowBackground(Color.clear)
@@ -50,7 +55,7 @@ struct HistoryView: View {
         Button {
             UIPasteboard.general.string = entry.text
             copiedID = entry.id
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            UISelectionFeedbackGenerator().selectionChanged()
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -71,7 +76,7 @@ struct HistoryView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassSurface()
+            .contentCard()
         }
         .buttonStyle(.plain)
     }

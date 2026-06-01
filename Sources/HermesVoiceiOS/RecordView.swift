@@ -17,13 +17,17 @@ struct RecordView: View {
                 Spacer(minLength: 4)
                 statusLine
                 timer
-                MicButton(isRecording: isRecording,
-                          busy: busy,
-                          level: CGFloat(AudioMeter.shared.level)) {
+                if isRecording {
+                    WaveformView()
+                        .frame(height: 88)
+                        .padding(.horizontal, 8)
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                }
+                MicButton(isRecording: isRecording, busy: busy) {
                     Task { await controller.toggle() }
                 }
                 if controller.showCopied { copiedPill }
-                if !controller.lastText.isEmpty { transcriptCard }
+                if !controller.lastText.isEmpty && !isRecording { transcriptCard }
                 Spacer()
             }
             .padding(.horizontal, 24)
@@ -34,8 +38,16 @@ struct RecordView: View {
         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: controller.showCopied)
         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: controller.lastText)
         .animation(.easeInOut(duration: 0.35), value: controller.status)
-        // Weiche Haptik beim Start/Stopp der Aufnahme.
-        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.8), trigger: isRecording)
+        // Differenzierte Haptik je Zustandswechsel: Start / Stop / Fertig / Fehler.
+        .sensoryFeedback(trigger: controller.status) { old, new in
+            switch new {
+            case .recording:                       return .impact(weight: .medium)
+            case .transcribing:                    return .impact(weight: .light)
+            case .idle where old == .transcribing: return .success
+            case .error:                           return .warning
+            default:                               return nil
+            }
+        }
     }
 
     // MARK: Hintergrund
@@ -131,7 +143,7 @@ struct RecordView: View {
             .frame(maxHeight: 170)
         }
         .padding(18)
-        .glassSurface()
+        .contentCard()
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }

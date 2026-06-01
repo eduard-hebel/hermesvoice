@@ -74,6 +74,17 @@ extension View {
                 )
         }
     }
+
+    /// Content-Layer-Karte: bewusst Material (NICHT Glass). Liquid Glass gehört laut
+    /// Apple/Community nur auf Chrome/Overlays — Content-Karten bleiben Material.
+    func contentCard(_ radius: CGFloat = Brand.R.card) -> some View {
+        self
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(.quaternary, lineWidth: 1)
+            )
+    }
 }
 
 // MARK: - Mic-Button (Held des Diktat-Screens)
@@ -87,53 +98,55 @@ struct MicButtonStyle: ButtonStyle {
     }
 }
 
-/// Pegelreaktive Pulsringe hinter dem Mic-Button während der Aufnahme.
-/// Lauter = stärkere Ringe. Stille fällt unter `reduceMotion` weg.
-struct PulseRings: View {
-    let level: CGFloat
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var animate = false
+/// Live-Waveform während der Aufnahme: gespiegelte Balken aus dem AudioMeter-Ringpuffer.
+/// Bewusst die EINZIGE Hero-Bewegung im Aufnahme-Zustand (kein zusätzliches Pulsieren/
+/// Glass — GPU/Thermik-schonend auf 8 GB). Liest AudioMeter direkt im body → nur diese
+/// View rendert bei jedem Pegel-Update neu, nicht der ganze Screen.
+struct WaveformView: View {
+    private let meter = AudioMeter.shared
 
     var body: some View {
-        ZStack {
-            ForEach(0..<3, id: \.self) { i in
-                Circle()
-                    .stroke(Brand.recordA.opacity(0.35), lineWidth: 2)
-                    .frame(width: 168, height: 168)
-                    .scaleEffect(animate ? 2.0 : 1.0)
-                    .opacity(animate ? 0 : 0.55)
-                    .animation(
-                        reduceMotion ? nil :
-                            .easeOut(duration: 2.6).repeatForever(autoreverses: false).delay(Double(i) * 0.85),
-                        value: animate)
+        let levels = meter.levels   // Lesen im body = Observation-Abhängigkeit
+        return Canvas { ctx, size in
+            let n = levels.count
+            guard n > 0 else { return }
+            let barWidth: CGFloat = 4
+            let gap = n > 1 ? (size.width - CGFloat(n) * barWidth) / CGFloat(n - 1) : 0
+            let midY = size.height / 2
+            let grad = Gradient(colors: [Brand.recordA, Brand.recordB])
+            for (i, lvl) in levels.enumerated() {
+                let h = max(3, CGFloat(lvl) * size.height)
+                let x = CGFloat(i) * (barWidth + gap)
+                let rect = CGRect(x: x, y: midY - h / 2, width: barWidth, height: h)
+                ctx.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2),
+                         with: .linearGradient(grad,
+                                               startPoint: CGPoint(x: 0, y: midY - size.height / 2),
+                                               endPoint: CGPoint(x: 0, y: midY + size.height / 2)))
             }
         }
-        .opacity(0.4 + min(level, 1) * 0.6)
-        .onAppear { animate = true }
+        .accessibilityHidden(true)
     }
 }
 
-/// Großer Diktat-Auslöser. Idle = Brand-Gradient mit sanftem „Atmen", Aufnahme =
-/// warmer Gradient mit Pulsringen, beides mit Tiefe (getönter Schatten + Highlight).
+/// Großer Diktat-Auslöser. Idle = Brand-Gradient mit dezentem, snappy „Atmen", Aufnahme =
+/// warmer Gradient (die Bewegung übernimmt die Waveform), beides mit Tiefe (getönter
+/// Schatten + Highlight). Kein Pegel-Scale mehr → nur die Waveform bewegt sich.
 struct MicButton: View {
     let isRecording: Bool
     let busy: Bool
-    let level: CGFloat
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var breathe = false
 
     private var scale: CGFloat {
-        if isRecording { return 1.0 + min(level, 1) * 0.10 }
-        return (breathe && !reduceMotion) ? 1.035 : 1.0
+        guard !isRecording, !busy else { return 1.0 }
+        return (breathe && !reduceMotion) ? 1.03 : 1.0
     }
 
     var body: some View {
         Button(action: action) {
             ZStack {
-                if isRecording { PulseRings(level: level) }
-
                 Circle()
                     .fill(isRecording ? Brand.recordingGradient : Brand.gradient)
                     .frame(width: 168, height: 168)
@@ -146,17 +159,15 @@ struct MicButton: View {
                     )
                     .shadow(color: (isRecording ? Brand.recordA : Brand.violet).opacity(0.45),
                             radius: 30, x: 0, y: 14)
-                    .scaleEffect(scale)
-                    .animation(reduceMotion ? nil :
-                        .easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: breathe)
-                    .animation(.easeOut(duration: 0.12), value: level)
 
                 Image(systemName: isRecording ? "stop.fill" : "mic.fill")
                     .font(.system(size: 54, weight: .semibold))
                     .foregroundStyle(.white)
                     .contentTransition(.symbolEffect(.replace))
-                    .scaleEffect(scale)
             }
+            .scaleEffect(scale)
+            .animation(reduceMotion ? nil :
+                .easeInOut(duration: 1.8).repeatForever(autoreverses: true), value: breathe)
         }
         .buttonStyle(MicButtonStyle())
         .disabled(busy)

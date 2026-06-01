@@ -104,8 +104,7 @@ final class DictationController {
             UIPasteboard.general.string = text
             PendingStore.write(text)   // für die Hermes-Tastatur (Ein-Tipp-Einfügen)
             showCopied = true
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            status = .idle
+            status = .idle   // Erfolgs-Haptik macht RecordView per .sensoryFeedback(transcribing→idle)
         } catch {
             AudioSessionConfig.deactivate()
             status = .error(error.localizedDescription)
