@@ -1,37 +1,82 @@
 import SwiftUI
 import UIKit
 
-/// Verlauf der letzten Diktate (geteilter HistoryStore). Tap kopiert den Eintrag
-/// erneut in die Zwischenablage.
+/// Verlauf der letzten Diktate (geteilter HistoryStore). Tap kopiert erneut in die
+/// Zwischenablage, Swipe löscht, Toolbar leert. Karten in Liquid Glass / Material.
 struct HistoryView: View {
     private let store = HistoryStore.shared
     @State private var copiedID: UUID?
+    @State private var showClearConfirm = false
 
     var body: some View {
-        List {
+        Group {
             if store.entries.isEmpty {
-                ContentUnavailableView("Noch keine Diktate", systemImage: "clock",
-                                       description: Text("Aufgenommene Diktate erscheinen hier."))
-            }
-            ForEach(store.entries) { entry in
-                Button {
-                    UIPasteboard.general.string = entry.text
-                    copiedID = entry.id
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.text).lineLimit(3).foregroundStyle(.primary)
-                        Text(entry.timestamp, style: .relative)
-                            .font(.caption).foregroundStyle(.secondary)
+                ContentUnavailableView {
+                    Label("Noch keine Diktate", systemImage: "waveform")
+                } description: {
+                    Text("Aufgenommene Diktate erscheinen hier.")
+                }
+            } else {
+                List {
+                    ForEach(store.entries) { entry in
+                        row(entry)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    withAnimation { store.remove(entry) }
+                                } label: { Label("Löschen", systemImage: "trash") }
+                            }
                     }
                 }
-                .overlay(alignment: .trailing) {
-                    if copiedID == entry.id {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    }
-                }
+                .listStyle(.plain)
             }
         }
         .navigationTitle("Verlauf")
+        .toolbar {
+            if !store.entries.isEmpty {
+                Button("Leeren", role: .destructive) { showClearConfirm = true }
+                    .tint(Brand.accent)
+            }
+        }
+        .confirmationDialog("Ganzen Verlauf löschen?", isPresented: $showClearConfirm, titleVisibility: .visible) {
+            Button("Alles löschen", role: .destructive) { withAnimation { store.clear() } }
+            Button("Abbrechen", role: .cancel) {}
+        }
     }
+
+    private func row(_ entry: HistoryEntry) -> some View {
+        Button {
+            UIPasteboard.general.string = entry.text
+            copiedID = entry.id
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(entry.text)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                    Text(entry.timestamp, style: .relative)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: copiedID == entry.id ? "checkmark.circle.fill" : "doc.on.doc")
+                    .font(.body)
+                    .foregroundStyle(copiedID == entry.id ? .green : Brand.accent)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassSurface()
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+#Preview {
+    NavigationStack { HistoryView() }
 }

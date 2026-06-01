@@ -51,6 +51,16 @@ final class HistoryStore {
         save()
     }
 
+    func remove(_ entry: HistoryEntry) {
+        entries.removeAll { $0.id == entry.id }
+        save()
+    }
+
+    func remove(atOffsets offsets: IndexSet) {
+        entries.remove(atOffsets: offsets)
+        save()
+    }
+
     func clear() {
         entries.removeAll()
         save()

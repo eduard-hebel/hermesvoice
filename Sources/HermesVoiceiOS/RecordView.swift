@@ -1,75 +1,138 @@
 import SwiftUI
 
-/// Haupt-Diktat-Screen: großer Mic-Button (Tap = Start/Stop), Live-Pegel,
-/// Status, „Kopiert"-Bestätigung und das letzte Transkript zum Nachlesen.
+/// Haupt-Diktat-Screen. Held ist der Mic-Button (Tap = Start/Stop) mit Tiefe,
+/// Pulsringen und Live-Timer. Status, „Kopiert"-Pille und Transcript-Karte in
+/// Liquid Glass. Hintergrund-Glow folgt dem Zustand. Alle Bewegungen springen weich.
 struct RecordView: View {
     @Bindable var controller: DictationController
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isRecording: Bool { controller.status == .recording }
+    private var busy: Bool { controller.status == .transcribing || controller.status == .loadingModel }
 
     var body: some View {
-        VStack(spacing: 28) {
-            Spacer(minLength: 8)
-            statusLine
-            micButton
-            if controller.showCopied {
-                Label("Kopiert ✓ — zur App zurückwischen & einfügen", systemImage: "doc.on.clipboard")
-                    .font(.callout)
-                    .foregroundStyle(.green)
-                    .multilineTextAlignment(.center)
-                    .transition(.opacity)
-            }
-            if !controller.lastText.isEmpty {
-                ScrollView {
-                    Text(controller.lastText)
-                        .font(.body)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
+        ZStack {
+            backgroundGlow
+            VStack(spacing: 24) {
+                Spacer(minLength: 4)
+                statusLine
+                timer
+                MicButton(isRecording: isRecording,
+                          busy: busy,
+                          level: CGFloat(AudioMeter.shared.level)) {
+                    Task { await controller.toggle() }
                 }
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 14))
-                .frame(maxHeight: 220)
+                if controller.showCopied { copiedPill }
+                if !controller.lastText.isEmpty { transcriptCard }
+                Spacer()
             }
-            Spacer()
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
         }
-        .padding()
         .navigationTitle("HermesVoice")
-        .animation(.easeInOut(duration: 0.2), value: controller.showCopied)
+        .navigationBarTitleDisplayMode(.inline)
+        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: controller.showCopied)
+        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: controller.lastText)
+        .animation(.easeInOut(duration: 0.35), value: controller.status)
+        // Weiche Haptik beim Start/Stopp der Aufnahme.
+        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.8), trigger: isRecording)
     }
+
+    // MARK: Hintergrund
+
+    private var backgroundGlow: some View {
+        let glow = isRecording ? Brand.recordA : Brand.violet
+        return RadialGradient(colors: [glow.opacity(isRecording ? 0.26 : 0.16), .clear],
+                              center: .init(x: 0.5, y: 0.42), startRadius: 8, endRadius: 360)
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.5), value: isRecording)
+    }
+
+    // MARK: Status
 
     private var statusLine: some View {
         Group {
             switch controller.status {
-            case .loadingModel: Label("Modell lädt … (einmalig)", systemImage: "arrow.down.circle")
-            case .idle:         Text("Tippen zum Diktieren").foregroundStyle(.secondary)
-            case .recording:    Label("Aufnahme läuft – nochmal tippen zum Stoppen", systemImage: "waveform").foregroundStyle(.red)
-            case .transcribing: Label("Transkribiere …", systemImage: "waveform.badge.magnifyingglass")
-            case .error(let m): Label(m, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            case .loadingModel:
+                Label("Modell wird vorbereitet … (einmalig)", systemImage: "sparkles")
+                    .foregroundStyle(.secondary)
+            case .idle:
+                Text("Tippen zum Diktieren")
+                    .foregroundStyle(.secondary)
+            case .recording:
+                Label("Aufnahme läuft", systemImage: "waveform")
+                    .foregroundStyle(Brand.recordA)
+                    .symbolEffect(.variableColor.iterative, options: reduceMotion ? .nonRepeating : .repeating)
+            case .transcribing:
+                Label("Transkribiere …", systemImage: "waveform.badge.magnifyingglass")
+                    .foregroundStyle(.secondary)
+            case .error(let m):
+                Label(m, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
             }
         }
-        .font(.callout)
+        .font(.callout.weight(.medium))
         .multilineTextAlignment(.center)
+        .contentTransition(.opacity)
+        .frame(minHeight: 24)
     }
 
-    private var micButton: some View {
-        let isRecording = controller.status == .recording
-        let level = AudioMeter.shared.level   // @Observable → Pegel treibt die Animation
-        let scale = isRecording ? 1.0 + CGFloat(level) * 0.4 : 1.0
-        let busy = controller.status == .transcribing || controller.status == .loadingModel
-        return Button {
-            Task { await controller.toggle() }
-        } label: {
-            ZStack {
-                Circle()
-                    .fill(isRecording ? Color.red.opacity(0.25) : Color.accentColor.opacity(0.18))
-                    .frame(width: 180, height: 180)
-                    .scaleEffect(scale)
-                Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-                    .font(.system(size: 56, weight: .semibold))
-                    .foregroundStyle(isRecording ? .red : Color.accentColor)
-            }
+    @ViewBuilder
+    private var timer: some View {
+        if isRecording, let start = controller.recordingStartedAt {
+            Text(timerInterval: start...Date(timeInterval: 3600, since: start),
+                 countsDown: false, showsHours: false)
+                .font(.system(.title2, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.recordA)
+                .transition(.opacity)
+        } else {
+            Color.clear.frame(height: 28)   // hält das Layout stabil
         }
-        .buttonStyle(.plain)
-        .disabled(busy)
-        .opacity(busy ? 0.5 : 1)
-        .animation(.easeOut(duration: 0.08), value: level)
+    }
+
+    // MARK: Kopiert-Pille
+
+    private var copiedPill: some View {
+        Label("Kopiert · zurückwischen & einfügen", systemImage: "checkmark.circle.fill")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.green)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
+            .glassSurface(Brand.R.pill)
+            .transition(.scale(scale: 0.85).combined(with: .opacity))
+    }
+
+    // MARK: Transcript
+
+    private var transcriptCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Letztes Diktat")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    UIPasteboard.general.string = controller.lastText
+                    controller.showCopied = true
+                    UISelectionFeedbackGenerator().selectionChanged()
+                } label: {
+                    Label("Kopieren", systemImage: "doc.on.doc")
+                        .font(.footnote.weight(.medium))
+                }
+                .tint(Brand.accent)
+            }
+            ScrollView {
+                Text(controller.lastText)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 170)
+        }
+        .padding(18)
+        .glassSurface()
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
 

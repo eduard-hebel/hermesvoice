@@ -16,6 +16,7 @@ struct HermesVoiceiOSApp: App {
                 NavigationStack { SettingsView() }
                     .tabItem { Label("Einstellungen", systemImage: "gearshape") }
             }
+            .tint(Brand.accent)
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { handleAutoRecord() }
             }

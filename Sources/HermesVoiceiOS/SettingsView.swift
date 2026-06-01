@@ -11,31 +11,47 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Sprache") {
-                Picker("Diktat-Sprache", selection: $languageHint) {
+                Picker(selection: $languageHint) {
                     Text("Deutsch").tag("de")
                     Text("English").tag("en")
                     Text("Automatisch erkennen").tag("")
+                } label: {
+                    Label("Diktat-Sprache", systemImage: "character.bubble")
                 }
             }
 
             Section("Modell") {
-                LabeledContent("Whisper", value: "base · on-device")
-                Text("Läuft komplett offline auf deinem iPhone — kein Upload, kein Internet nötig. Das Modell ist in die App eingebacken.")
-                    .font(.caption).foregroundStyle(.secondary)
+                LabeledContent {
+                    Text("small · on-device")
+                        .foregroundStyle(.secondary)
+                } label: {
+                    Label("Whisper", systemImage: "cpu")
+                }
+                Label {
+                    Text("Läuft komplett offline auf deinem iPhone — kein Upload, kein Internet nötig. Das Modell ist in die App eingebacken.")
+                } icon: {
+                    Image(systemName: "lock.shield")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Section("So diktierst du überall") {
                 Label("Hier aufnehmen → Text landet in der Zwischenablage → in jeder App einfügen.", systemImage: "doc.on.clipboard")
-                    .font(.callout)
                 Label("Action Button belegen: Einstellungen → Action Button → Kurzbefehl → „HermesVoice“ — dann startet das Diktat per Knopfdruck.", systemImage: "button.programmable")
-                    .font(.callout)
             }
+            .font(.callout)
 
             Section {
-                LabeledContent("Version", value: "0.1.0")
+                LabeledContent {
+                    Text("0.1.0").foregroundStyle(.secondary)
+                } label: {
+                    Label("Version", systemImage: "info.circle")
+                }
             }
         }
         .navigationTitle("Einstellungen")
+        .tint(Brand.accent)
     }
 }
 

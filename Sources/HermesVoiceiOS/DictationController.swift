@@ -20,6 +20,8 @@ final class DictationController {
     var status: Status = .loadingModel
     var lastText: String = ""
     var showCopied = false
+    /// Startzeitpunkt der laufenden Aufnahme — treibt den Live-Timer im UI.
+    var recordingStartedAt: Date?
 
     private let recorder = AudioRecorder()
     private let transcriber = Transcriber.shared
@@ -52,6 +54,7 @@ final class DictationController {
     /// zu laden (sonst würde der Xcode-Canvas am Modell-Load hängen).
     init(previewStatus: Status) {
         status = previewStatus
+        if previewStatus == .recording { recordingStartedAt = .now }
     }
 
     /// Start/Stop wie auf dem Mac: idle → aufnehmen, recording → verarbeiten.
@@ -74,6 +77,7 @@ final class DictationController {
         do {
             try await recorder.start()
             showCopied = false
+            recordingStartedAt = .now
             status = .recording
         } catch {
             AudioSessionConfig.deactivate()
@@ -83,6 +87,7 @@ final class DictationController {
     }
 
     private func stopAndProcess() async {
+        recordingStartedAt = nil
         status = .transcribing
         do {
             let url = try await recorder.stop()
