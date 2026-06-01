@@ -46,6 +46,16 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
             }
 
+            Section("Wörterbuch") {
+                NavigationLink {
+                    DictionaryView()
+                } label: {
+                    Label("Eigenes Wörterbuch", systemImage: "character.book.closed")
+                }
+                Text("Eigene Begriffe, Namen oder Dialektwörter (z. B. „oida“) nach dem Diktat automatisch korrigieren.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
             Section("So diktierst du überall") {
                 Label("Hier aufnehmen → Text landet in der Zwischenablage → in jeder App einfügen.", systemImage: "doc.on.clipboard")
                 Label("Action Button belegen: Einstellungen → Action Button → Kurzbefehl → „HermesVoice“ — dann startet das Diktat per Knopfdruck.", systemImage: "button.programmable")

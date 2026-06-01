@@ -92,7 +92,8 @@ final class DictationController {
         do {
             let url = try await recorder.stop()
             AudioSessionConfig.deactivate()
-            let text = try await transcriber.transcribe(audioURL: url, language: languageHint)
+            let raw = try await transcriber.transcribe(audioURL: url, language: languageHint)
+            let text = UserDictionaryStore.shared.apply(to: raw)   // eigenes Wörterbuch
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
                 status = .error("Nichts erkannt — nochmal versuchen")
