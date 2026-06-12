@@ -15,6 +15,7 @@ Sources/HermesVoice/HermesVoice.entitlements
 .build/
 .swiftpm/
 Package.resolved
+.worktrees/
 
 # macOS
 .DS_Store
