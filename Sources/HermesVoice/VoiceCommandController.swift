@@ -17,6 +17,8 @@ final class VoiceCommandController {
     // (→ noPipeline) und würde auf 8 GB RAM den Speicher sprengen.
     private let transcriber = Transcriber.shared
     private let inserter = TextInserter()
+    private let operationCoordinator = SpeechOperationCoordinator.shared
+    private var operationToken: UUID?
 
     private var capturedSelection: String = ""
     private var isRecording = false
@@ -51,18 +53,21 @@ final class VoiceCommandController {
         Self.log.info("Captured selection (\(self.capturedSelection.count) chars)")
 
         do {
+            operationToken = try operationCoordinator.begin(.voiceCommand)
             AudioMeter.shared.reset()
             try await recorder.start()
             isRecording = true
             SoundService.play(.start)
             RecordingHUDController.shared.update(status: .recording)
         } catch {
+            releaseOperation()
             Self.log.error("recorder.start failed: \(error.localizedDescription)")
             SoundService.play(.error)
         }
     }
 
     private func stop() async {
+        defer { releaseOperation() }
         Self.log.info("Voice-Command stop — transcribing command")
         isRecording = false
         isProcessing = true
@@ -140,5 +145,11 @@ final class VoiceCommandController {
         Task { @MainActor in
             NotificationService.shared.showTranscript("\(title)\n\(body)", insertedSuccessfully: false)
         }
+    }
+
+    private func releaseOperation() {
+        guard let operationToken else { return }
+        operationCoordinator.end(operationToken)
+        self.operationToken = nil
     }
 }

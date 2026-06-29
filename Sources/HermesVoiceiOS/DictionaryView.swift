@@ -54,7 +54,7 @@ struct DictionaryView: View {
                                 .fontWeight(.medium)
                         }
                     }
-                    .onDelete { store.remove(atOffsets: $0) }
+                    .onDelete(perform: removeEntries)
                 }
             }
         }
@@ -68,7 +68,20 @@ struct DictionaryView: View {
         store.add(heard: heard, correct: correct)
         heard = ""; correct = ""
         focus = .heard
-        UISelectionFeedbackGenerator().selectionChanged()
+        ActionFeedbackCenter.shared.show(
+            "Korrektur hinzugefügt",
+            systemImage: "checkmark.circle.fill",
+            kind: .success
+        )
+    }
+
+    private func removeEntries(at offsets: IndexSet) {
+        store.remove(atOffsets: offsets)
+        ActionFeedbackCenter.shared.show(
+            "Korrektur gelöscht",
+            systemImage: "trash.fill",
+            kind: .destructive
+        )
     }
 }
 

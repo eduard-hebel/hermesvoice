@@ -47,7 +47,7 @@ struct HistoryWindow: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button {
-                            Clipboard.copy(entry.text)
+                            Clipboard.copy(entry.text, feedbackMessage: "Diktat kopiert")
                             copied = true
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
                         } label: {

@@ -31,6 +31,11 @@ struct HistoryView: View {
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     withAnimation { store.remove(entry) }
+                                    ActionFeedbackCenter.shared.show(
+                                        "Diktat gelöscht",
+                                        systemImage: "trash.fill",
+                                        kind: .destructive
+                                    )
                                 } label: { Label("Löschen", systemImage: "trash") }
                             }
                     }
@@ -46,7 +51,14 @@ struct HistoryView: View {
             }
         }
         .confirmationDialog("Ganzen Verlauf löschen?", isPresented: $showClearConfirm, titleVisibility: .visible) {
-            Button("Alles löschen", role: .destructive) { withAnimation { store.clear() } }
+            Button("Alles löschen", role: .destructive) {
+                withAnimation { store.clear() }
+                ActionFeedbackCenter.shared.show(
+                    "Verlauf gelöscht",
+                    systemImage: "trash.fill",
+                    kind: .destructive
+                )
+            }
             Button("Abbrechen", role: .cancel) {}
         }
     }
@@ -55,7 +67,15 @@ struct HistoryView: View {
         Button {
             UIPasteboard.general.string = entry.text
             copiedID = entry.id
-            UISelectionFeedbackGenerator().selectionChanged()
+            ActionFeedbackCenter.shared.show(
+                "Diktat kopiert",
+                systemImage: "doc.on.doc.fill",
+                kind: .success
+            )
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_600_000_000)
+                if copiedID == entry.id { copiedID = nil }
+            }
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {

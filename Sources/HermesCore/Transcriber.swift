@@ -64,7 +64,55 @@ actor Transcriber {
         // Whisper's 448-Token-Context → Decoding bricht ab → 0 chars Totalverlust.
         // Der Akronym-/Vokabel-Fix passiert stattdessen in der Claude-Cleanup-Stage,
         // die das robuster und kontextbewusster macht (siehe CleanupService).
-        let options = DecodingOptions(
+        let options = decodingOptions(language: language)
+        let results = try await pipe.transcribe(audioPath: audioURL.path, decodeOptions: options)
+        let texts: [String] = results.map { $0.text }
+        return texts.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+    }
+
+    func transcribe(
+        audioURLs: [URL],
+        language: String,
+        progress: @escaping @MainActor (Int, Int) -> Void
+    ) async throws -> [String] {
+        guard let pipe = pipeline else {
+            Self.log.error("batch transcribe() called but no model loaded")
+            throw TranscribeError.noPipeline
+        }
+        guard !audioURLs.isEmpty else { return [] }
+
+        let options = decodingOptions(language: language)
+        let batchSize = 2
+        var texts: [String] = []
+        var completed = 0
+
+        for start in stride(from: 0, to: audioURLs.count, by: batchSize) {
+            try Task.checkCancellation()
+            let end = min(start + batchSize, audioURLs.count)
+            let batch = Array(audioURLs[start..<end])
+            let results = await pipe.transcribeWithResults(
+                audioPaths: batch.map(\.path),
+                decodeOptions: options
+            )
+
+            for result in results {
+                let transcriptionResults = try result.get()
+                texts.append(
+                    transcriptionResults
+                        .map(\.text)
+                        .joined(separator: " ")
+                        .trimmingCharacters(in: .whitespaces)
+                )
+                completed += 1
+                await progress(completed, audioURLs.count)
+            }
+        }
+
+        return texts
+    }
+
+    private func decodingOptions(language: String) -> DecodingOptions {
+        DecodingOptions(
             task: .transcribe,
             language: language,
             temperature: 0.0,
@@ -72,9 +120,6 @@ actor Transcriber {
             skipSpecialTokens: true,
             withoutTimestamps: true
         )
-        let results = try await pipe.transcribe(audioPath: audioURL.path, decodeOptions: options)
-        let texts: [String] = results.map { $0.text }
-        return texts.joined(separator: " ").trimmingCharacters(in: .whitespaces)
     }
 
     enum TranscribeError: Error { case noPipeline }

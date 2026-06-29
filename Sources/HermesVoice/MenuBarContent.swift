@@ -42,8 +42,18 @@ struct MenuBarContent: View {
                     Divider()
                     Button("Verlauf leeren") {
                         HistoryStore.shared.clear()
+                        ActionFeedbackCenter.shared.show(
+                            "Verlauf gelöscht",
+                            systemImage: "trash.fill",
+                            kind: .destructive
+                        )
                     }
                 }
+            }
+
+            Button("Importe öffnen …") {
+                NSApp.activate(ignoringOtherApps: true)
+                openWindow(id: "imports")
             }
 
             Divider()

@@ -5,6 +5,7 @@ xcuserdata/
 DerivedData/
 build/
 .build-xcode/
+.derived-*/
 *.xcuserstate
 
 # xcodegen-generated artifacts (regenerable from project.yml)
@@ -28,7 +29,7 @@ Package.resolved
 .env.local
 
 # WhisperKit-Modelle (zu groß für Git)
-Models/
+Models
 *.mlpackage/
 *.mlmodelc/
 # WhisperKit cached die Modelle per Default unter ~/Documents/huggingface/

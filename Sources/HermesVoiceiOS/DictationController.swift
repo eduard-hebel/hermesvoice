@@ -25,6 +25,8 @@ final class DictationController {
 
     private let recorder = AudioRecorder()
     private let transcriber = Transcriber.shared
+    private let operationCoordinator = SpeechOperationCoordinator.shared
+    private var operationToken: UUID?
 
     /// In die App GEBUNDELTES Whisper-Modell (siehe project.yml → Models/<Ordner>).
     /// Das ist der Kern-Fix: WhisperKit lud das Modell sonst beim ersten Start aus dem
@@ -39,7 +41,15 @@ final class DictationController {
     private var languageHint: String { UserDefaults.standard.string(forKey: "languageHint") ?? "de" }
 
     init() {
+        let token: UUID
+        do {
+            token = try operationCoordinator.begin(.modelLoading)
+        } catch {
+            status = .error(error.localizedDescription)
+            return
+        }
         Task { @MainActor in
+            defer { operationCoordinator.end(token) }
             if let folder = Bundle.main.resourceURL?.appendingPathComponent(Self.bundledModelFolder),
                FileManager.default.fileExists(atPath: folder.path) {
                 await transcriber.preloadBundled(folder: folder)   // gebundelt: kein Download
@@ -67,7 +77,15 @@ final class DictationController {
     }
 
     private func startRecording() async {
+        do {
+            operationToken = try operationCoordinator.begin(.dictation)
+        } catch {
+            status = .error(error.localizedDescription)
+            resetErrorSoon()
+            return
+        }
         guard await AudioSessionConfig.ensurePermission() else {
+            releaseOperation()
             status = .error("Mikrofon-Zugriff fehlt — in Einstellungen erlauben")
             resetErrorSoon()
             return
@@ -80,6 +98,7 @@ final class DictationController {
             recordingStartedAt = .now
             status = .recording
         } catch {
+            releaseOperation()
             AudioSessionConfig.deactivate()
             status = .error("Mikro-Start: \(error.localizedDescription)")
             resetErrorSoon()
@@ -87,6 +106,7 @@ final class DictationController {
     }
 
     private func stopAndProcess() async {
+        defer { releaseOperation() }
         recordingStartedAt = nil
         status = .transcribing
         do {
@@ -118,5 +138,11 @@ final class DictationController {
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             if case .error = status { status = .idle }
         }
+    }
+
+    private func releaseOperation() {
+        guard let operationToken else { return }
+        operationCoordinator.end(operationToken)
+        self.operationToken = nil
     }
 }

@@ -71,6 +71,8 @@ final class AppState {
     private let transcriber = Transcriber.shared
     private let inserter = TextInserter()
     private let cleanup = CleanupService()
+    private let operationCoordinator = SpeechOperationCoordinator.shared
+    private var operationToken: UUID?
 
     /// Laufender Verarbeitungs-Task (Transcribe → Cleanup → Insert), abbrechbar via X im HUD.
     private var processingTask: Task<Void, Never>?
@@ -87,7 +89,19 @@ final class AppState {
     private enum ProcessingError: Error { case transcriptionTimeout }
 
     init() {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            status = .idle
+            return
+        }
+        let token: UUID
+        do {
+            token = try operationCoordinator.begin(.modelLoading)
+        } catch {
+            status = .error(error.localizedDescription)
+            return
+        }
         Task { @MainActor in
+            defer { operationCoordinator.end(token) }
             log.notice("Preloading Whisper model: \(self.modelName, privacy: .public)")
             await transcriber.preloadModel(name: modelName)
             status = .idle
@@ -135,6 +149,14 @@ final class AppState {
         }
         let name = modelName
         Task { @MainActor in
+            let token: UUID
+            do {
+                token = try await operationCoordinator.acquire(.modelLoading)
+            } catch {
+                log.notice("Model change cancelled while waiting for another speech operation")
+                return
+            }
+            defer { operationCoordinator.end(token) }
             log.notice("Reloading Whisper model: \(name, privacy: .public)")
             status = .loadingModel
             await transcriber.preloadModel(name: name)
@@ -174,6 +196,12 @@ final class AppState {
 
     private func startRecording() async {
         log.info("startRecording() begin")
+        do {
+            operationToken = try operationCoordinator.begin(.dictation)
+        } catch {
+            status = .error(error.localizedDescription)
+            return
+        }
         MediaController.pauseIfPlaying()
         AudioMeter.shared.reset()   // frischer Pegel — kein kurzes Aufblitzen des alten Werts
         do {
@@ -182,6 +210,7 @@ final class AppState {
             SoundService.play(.start)
             log.info("startRecording() success — engine running")
         } catch {
+            releaseOperation()
             log.error("startRecording() failed: \(error.localizedDescription)")
             SoundService.play(.error)
             status = .error("Mic-Start: \(error.localizedDescription)")
@@ -231,11 +260,13 @@ final class AppState {
 
     private func discardRecording() async {
         _ = try? await recorder.stop()   // Engine stoppen, Audio verwerfen
+        releaseOperation()
         SoundService.play(.stop)
         status = .idle
     }
 
     private func stopAndProcess() async {
+        defer { releaseOperation() }
         log.notice("stopAndProcess() begin")
         SoundService.play(.stop)
         do {
@@ -267,6 +298,13 @@ final class AppState {
             status = .idle
             return
         }
+        do {
+            operationToken = try operationCoordinator.begin(.dictation)
+        } catch {
+            status = .error(error.localizedDescription)
+            return
+        }
+        defer { releaseOperation() }
         log.info("Re-transcribing latest recording: \(url.lastPathComponent)")
         status = .transcribing
         let task = Task { await processAudio(at: url) }
@@ -357,5 +395,11 @@ final class AppState {
             SoundService.play(.error)
             status = .error(error.localizedDescription)
         }
+    }
+
+    private func releaseOperation() {
+        guard let operationToken else { return }
+        operationCoordinator.end(operationToken)
+        self.operationToken = nil
     }
 }

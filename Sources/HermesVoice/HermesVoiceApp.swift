@@ -4,6 +4,8 @@ import AppKit
 @main
 struct HermesVoiceApp: App {
     @State private var appState = AppState()
+    @State private var importController = ImportController()
+    @State private var actionFeedback = ActionFeedbackCenter.shared
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -19,11 +21,19 @@ struct HermesVoiceApp: App {
             SettingsView()
                 .environment(appState)
                 .frame(width: 520, height: 460)
+                .actionFeedbackOverlay(actionFeedback)
         }
 
         Window("Verlauf", id: "history") {
             HistoryWindow()
+                .actionFeedbackOverlay(actionFeedback)
         }
+
+        Window("Importe", id: "imports") {
+            ImportWindow(controller: importController)
+                .actionFeedbackOverlay(actionFeedback)
+        }
+        .defaultSize(width: 980, height: 680)
     }
 }
 
@@ -61,14 +71,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let done = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
         if !done {
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 self?.presentOnboarding()
             }
         }
     }
 
+    @MainActor
     private func presentOnboarding() {
         let view = OnboardingView()
+            .actionFeedbackOverlay(ActionFeedbackCenter.shared)
         let hosting = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: hosting)
         window.title = "Willkommen bei HermesVoice"

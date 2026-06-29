@@ -158,8 +158,11 @@ struct RecordView: View {
                 Spacer()
                 Button {
                     UIPasteboard.general.string = controller.lastText
-                    controller.showCopied = true
-                    UISelectionFeedbackGenerator().selectionChanged()
+                    ActionFeedbackCenter.shared.show(
+                        "Diktat kopiert",
+                        systemImage: "doc.on.doc.fill",
+                        kind: .success
+                    )
                 } label: {
                     Label("Kopieren", systemImage: "doc.on.doc")
                         .font(.footnote.weight(.medium))

@@ -86,10 +86,14 @@ targets:
             CFBundleURLSchemes: [hermes]
     entitlements:
       path: Sources/HermesVoiceiOS/HermesVoiceiOS.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.de.hermes.voice.shared
     dependencies:
       - package: WhisperKit
         product: WhisperKit
       - target: HermesKeyboard   # Tastatur-Erweiterung wird in die App eingebettet
+      - target: HermesShare      # Medien aus dem iOS-Teilen-Menue
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.hermes.voice.ios
@@ -140,3 +144,58 @@ targets:
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"
         SWIFT_VERSION: "5.10"
+
+  HermesShare:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: Sources/HermesShare
+        excludes:
+          - "*.entitlements"
+      # Nur der atomare App-Group-Briefkasten. Kein HermesCore, kein WhisperKit,
+      # kein 632-MB-Modell in der Share Extension.
+      - path: Sources/HermesCore/SharedImportInbox.swift
+    info:
+      path: Sources/HermesShare/Info.plist
+      properties:
+        CFBundleDisplayName: In HermesVoice importieren
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsFileWithMaxCount: 1
+              NSExtensionActivationSupportsMovieWithMaxCount: 1
+    entitlements:
+      path: Sources/HermesShare/HermesShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.de.hermes.voice.shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.hermes.voice.ios.share
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1"
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        SWIFT_VERSION: "5.10"
+
+  HermesVoiceTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Tests/HermesVoiceTests
+    dependencies:
+      - target: HermesVoice
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.hermes.voice.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
