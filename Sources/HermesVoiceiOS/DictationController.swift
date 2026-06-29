@@ -19,6 +19,8 @@ final class DictationController {
 
     var status: Status = .loadingModel
     var lastText: String = ""
+    var rawTranscript: String = ""
+    var selectedStyle: FormatMode = .free
     var showCopied = false
     /// Startzeitpunkt der laufenden Aufnahme — treibt den Live-Timer im UI.
     var recordingStartedAt: Date?
@@ -120,10 +122,11 @@ final class DictationController {
                 resetErrorSoon()
                 return
             }
+            rawTranscript = text
+            selectedStyle = .free
             lastText = text
             HistoryStore.shared.add(text: text, mode: .free)
-            UIPasteboard.general.string = text
-            PendingStore.write(text)   // für die Hermes-Tastatur (Ein-Tipp-Einfügen)
+            publish(text)
             showCopied = true
             status = .idle   // Erfolgs-Haptik macht RecordView per .sensoryFeedback(transcribing→idle)
         } catch {
@@ -144,5 +147,26 @@ final class DictationController {
         guard let operationToken else { return }
         operationCoordinator.end(operationToken)
         self.operationToken = nil
+    }
+
+    func applyStyle(_ mode: FormatMode) {
+        let source = rawTranscript.isEmpty ? lastText : rawTranscript
+        guard !source.isEmpty else { return }
+        selectedStyle = mode
+        let styled = TranscriptStyler.style(source, as: mode)
+        lastText = styled
+        publish(styled)
+        showCopied = true
+    }
+
+    func copyResult() {
+        guard !lastText.isEmpty else { return }
+        publish(lastText)
+        showCopied = true
+    }
+
+    private func publish(_ text: String) {
+        UIPasteboard.general.string = text
+        PendingStore.write(text)   // für die Hermes-Tastatur (Ein-Tipp-Einfügen)
     }
 }

@@ -1,0 +1,11 @@
+"Diktat einfügen" = "Insert Dictation";
+"aus HermesVoice" = "from HermesVoice";
+"App öffnen, sprechen, zurück zur Tastatur. Frische Diktate werden einmalig automatisch eingesetzt." = "Open the app, speak, return to the keyboard. Fresh dictations are inserted once automatically.";
+"⌨︎  Tastatur wechseln" = "⌨︎  Switch Keyboard";
+"Vollzugriff fehlt: Einstellungen → Allgemein → Tastatur → HermesVoice → erlauben." = "Full Access is missing: Settings → General → Keyboard → HermesVoice → allow it.";
+"Bereit · letzter HermesVoice-Text gefunden." = "Ready · latest HermesVoice text found.";
+"Noch kein Diktat. Erst in HermesVoice aufnehmen." = "No dictation yet. Record in HermesVoice first.";
+"Vollzugriff nötig (siehe oben)." = "Full Access required (see above).";
+"Noch kein HermesVoice-Diktat gefunden." = "No HermesVoice dictation found yet.";
+"Automatisch eingefügt · %d Zeichen" = "Automatically inserted · %d characters";
+"Eingefügt · %d Zeichen" = "Inserted · %d characters";

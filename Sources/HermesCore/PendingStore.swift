@@ -6,7 +6,7 @@ import Foundation
 /// `consumed` verhindert versehentliches Doppel-Einfügen.
 enum PendingStore {
     /// Muss identisch in den Entitlements von App UND Tastatur stehen.
-    static let appGroup = "group.de.hermes.voice"
+    static let appGroup = "group.de.hermes.voice.shared"
     private static let key = "pendingTranscription"
 
     struct Pending: Codable {

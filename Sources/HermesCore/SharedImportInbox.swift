@@ -30,12 +30,16 @@ struct SharedImportInbox {
     func enqueue(fileURL: URL, originalFilename providedOriginalFilename: String? = nil) throws -> SharedImportEnvelope {
         try prepareDirectories()
         let id = UUID()
-        let originalFilename = Self.originalFilename(
+        let source = Self.resolvedSource(
             for: fileURL,
             providedOriginalFilename: providedOriginalFilename
         )
+        let originalFilename = Self.originalFilename(
+            for: source.fileURL,
+            providedOriginalFilename: source.originalFilename
+        )
         let fileExtension = Self.fileExtension(
-            for: fileURL,
+            for: source.fileURL,
             originalFilename: originalFilename
         )
         let storedFilename = fileExtension.isEmpty ? id.uuidString : "\(id.uuidString).\(fileExtension)"
@@ -43,13 +47,13 @@ struct SharedImportInbox {
         let partialFileURL = finalFileURL.appendingPathExtension("partial")
         let manifestURL = readyURL.appendingPathComponent("\(id.uuidString).json")
         let partialManifestURL = manifestURL.appendingPathExtension("partial")
-        let hasSecurityAccess = fileURL.startAccessingSecurityScopedResource()
+        let hasSecurityAccess = source.fileURL.startAccessingSecurityScopedResource()
         defer {
-            if hasSecurityAccess { fileURL.stopAccessingSecurityScopedResource() }
+            if hasSecurityAccess { source.fileURL.stopAccessingSecurityScopedResource() }
         }
 
         do {
-            try FileManager.default.copyItem(at: fileURL, to: partialFileURL)
+            try FileManager.default.copyItem(at: source.fileURL, to: partialFileURL)
             try FileManager.default.moveItem(at: partialFileURL, to: finalFileURL)
             let envelope = SharedImportEnvelope(
                 id: id,
@@ -99,6 +103,73 @@ struct SharedImportInbox {
         try FileManager.default.createDirectory(at: readyURL, withIntermediateDirectories: true)
     }
 
+    private static func resolvedSource(
+        for fileURL: URL,
+        providedOriginalFilename: String?
+    ) -> (fileURL: URL, originalFilename: String?) {
+        guard let resolvedFileURL = fileURLPointerTarget(in: fileURL),
+              FileManager.default.fileExists(atPath: resolvedFileURL.path)
+        else {
+            return (fileURL, providedOriginalFilename)
+        }
+
+        let provided = sanitizedFilename(providedOriginalFilename)
+        if let provided,
+           !URL(fileURLWithPath: provided).pathExtension.isEmpty,
+           !isGenericFileURLName(provided)
+        {
+            return (resolvedFileURL, provided)
+        }
+
+        return (resolvedFileURL, resolvedFileURL.lastPathComponent)
+    }
+
+    private static func fileURLPointerTarget(in fileURL: URL) -> URL? {
+        guard (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) ?? 0 <= 8_192,
+              let data = try? Data(contentsOf: fileURL),
+              let propertyList = try? PropertyListSerialization.propertyList(
+                from: data,
+                options: [],
+                format: nil
+              )
+        else {
+            return nil
+        }
+
+        return firstFileURL(in: propertyList)
+    }
+
+    private static func firstFileURL(in value: Any) -> URL? {
+        if let url = value as? URL, url.isFileURL {
+            return url
+        }
+
+        if let string = value as? String,
+           let url = URL(string: string),
+           url.isFileURL
+        {
+            return url
+        }
+
+        if let array = value as? [Any] {
+            for element in array {
+                if let url = firstFileURL(in: element) {
+                    return url
+                }
+            }
+        }
+
+        if let dictionary = value as? [AnyHashable: Any] {
+            for element in dictionary.values {
+                if let url = firstFileURL(in: element) {
+                    return url
+                }
+            }
+        }
+
+        return nil
+    }
+
     private static func originalFilename(
         for fileURL: URL,
         providedOriginalFilename: String?
@@ -118,6 +189,15 @@ struct SharedImportInbox {
             return originalExtension
         }
         return fileURL.pathExtension
+    }
+
+    private static func isGenericFileURLName(_ filename: String) -> Bool {
+        let normalized = filename
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        return normalized == "datei-url"
+            || normalized == "file-url"
+            || normalized == "file url"
     }
 
     private static func sanitizedFilename(_ filename: String?) -> String? {

@@ -37,6 +37,27 @@ struct ImportDetailView: View {
 
     private func completedImport(_ item: ImportItem) -> some View {
         List {
+            Section("Transkript") {
+                Text(item.transcript)
+                    .textSelection(.enabled)
+                HStack {
+                    Button(action: { copyTranscript(item.transcript) }) {
+                        Label(
+                            transcriptCopied ? "Kopiert" : "Kopieren",
+                            systemImage: transcriptCopied ? "checkmark.circle.fill" : "doc.on.doc"
+                        )
+                        .contentTransition(.symbolEffect(.replace))
+                    }
+                    .accessibilityLabel(transcriptCopied ? "Transkript kopiert" : "Transkript kopieren")
+
+                    ShareLink(item: shareText(item)) {
+                        Label("Teilen", systemImage: "square.and.arrow.up")
+                    }
+
+                    Spacer()
+                }
+            }
+
             if let summary = item.summary {
                 Section("Kurzfassung") {
                     Text(summary.text)
@@ -50,26 +71,6 @@ struct ImportDetailView: View {
                                 .labelStyle(.titleAndIcon)
                         }
                     }
-                }
-            }
-
-            Section {
-                Text(item.transcript)
-                    .textSelection(.enabled)
-            } header: {
-                HStack {
-                    Text("Transkript")
-                    Spacer()
-                    Button(action: { copyTranscript(item.transcript) }) {
-                        Label(
-                            transcriptCopied ? "Kopiert" : "Kopieren",
-                            systemImage: transcriptCopied ? "checkmark.circle.fill" : "doc.on.doc"
-                        )
-                        .font(.caption.weight(.semibold))
-                        .contentTransition(.symbolEffect(.replace))
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel(transcriptCopied ? "Transkript kopiert" : "Transkript kopieren")
                 }
             }
 
@@ -92,10 +93,6 @@ struct ImportDetailView: View {
                     }
                 }
                 .disabled(controller.summarizingItemID != nil || controller.isProcessing)
-
-                ShareLink(item: shareText(item)) {
-                    Label("Teilen", systemImage: "square.and.arrow.up")
-                }
 
                 Button("Löschen", systemImage: "trash", role: .destructive) {
                     confirmsDeletion = true

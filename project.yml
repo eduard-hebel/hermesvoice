@@ -111,12 +111,13 @@ targets:
     platform: iOS
     deploymentTarget: "18.0"
     sources:
-      # Nur die Tastatur selbst — KEIN HermesCore/WhisperKit (77-MB-RAM-Limit). Die
-      # Tastatur liest das Diktat aus der System-Zwischenablage, kein geteilter Store nötig.
+      # Nur die Tastatur selbst + kleiner App-Group-Briefkasten — KEIN WhisperKit und
+      # kein Modell. Die schwere Transkription bleibt in der Haupt-App.
       - path: Sources/HermesKeyboard
         excludes:
           - "*.entitlements"
           - "Info.plist"
+      - path: Sources/HermesCore/PendingStore.swift
     info:
       path: Sources/HermesKeyboard/Info.plist
       properties:
@@ -133,6 +134,9 @@ targets:
             RequestsOpenAccess: true
     entitlements:
       path: Sources/HermesKeyboard/HermesKeyboard.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.de.hermes.voice.shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.hermes.voice.ios.keyboard

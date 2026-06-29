@@ -216,24 +216,6 @@ private struct MacImportDetailView: View {
                         .disabled(controller.summarizingItemID != nil || controller.isProcessing)
                     }
 
-                    if let summary = item.summary {
-                        GroupBox("Kurzfassung") {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text(summary.text)
-                                if !summary.keyPoints.isEmpty {
-                                    Text("Kernpunkte")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                        .padding(.top, 4)
-                                    ForEach(summary.keyPoints, id: \.self) { point in
-                                        Label(point, systemImage: "checkmark.circle")
-                                    }
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-
                     GroupBox {
                         Text(item.transcript)
                             .textSelection(.enabled)
@@ -250,6 +232,24 @@ private struct MacImportDetailView: View {
                                 .contentTransition(.symbolEffect(.replace))
                             }
                             .buttonStyle(.borderless)
+                        }
+                    }
+
+                    if let summary = item.summary {
+                        GroupBox("Kurzfassung") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(summary.text)
+                                if !summary.keyPoints.isEmpty {
+                                    Text("Kernpunkte")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.top, 4)
+                                    ForEach(summary.keyPoints, id: \.self) { point in
+                                        Label(point, systemImage: "checkmark.circle")
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
 

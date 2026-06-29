@@ -8,16 +8,20 @@ final class ShareViewController: UIViewController {
     private let doneButton = UIButton(type: .system)
     private var didStart = false
 
+    private func L(_ key: String) -> String {
+        NSLocalizedString(key, bundle: .main, comment: "")
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
 
-        statusLabel.text = "Datei wird an HermesVoice übergeben ..."
+        statusLabel.text = L("Datei wird an HermesVoice übergeben ...")
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 0
         statusLabel.font = .preferredFont(forTextStyle: .headline)
 
-        doneButton.setTitle("Fertig", for: .normal)
+        doneButton.setTitle(L("Fertig"), for: .normal)
         doneButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
         doneButton.isHidden = true
         doneButton.addTarget(self, action: #selector(finish), for: .touchUpInside)
@@ -52,7 +56,7 @@ final class ShareViewController: UIViewController {
             .first,
               let typeIdentifier = supportedTypeIdentifier(from: provider.registeredTypeIdentifiers)
         else {
-            showResult("Keine unterstützte Audio- oder Videodatei gefunden.")
+            showResult(L("Keine unterstützte Audio- oder Videodatei gefunden."))
             return
         }
 
@@ -74,11 +78,11 @@ final class ShareViewController: UIViewController {
                 )
                 scheduleOpenAppNotification()
                 DispatchQueue.main.async {
-                    self.showResult("Übergeben. Öffne HermesVoice; der Import startet dort automatisch.")
+                    self.showResult(self.L("Übergeben. Öffne HermesVoice; der Import startet dort automatisch."))
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.showResult("Übergabe fehlgeschlagen: \(error.localizedDescription)")
+                    self.showResult(String(format: self.L("Übergabe fehlgeschlagen: %@"), error.localizedDescription))
                 }
             }
         }
@@ -127,8 +131,8 @@ final class ShareViewController: UIViewController {
 
     private func scheduleOpenAppNotification() {
         let content = UNMutableNotificationContent()
-        content.title = "Bereit für HermesVoice"
-        content.body = "Öffne HermesVoice, um die geteilte Datei lokal zu transkribieren."
+        content.title = L("Bereit für HermesVoice")
+        content.body = L("Öffne HermesVoice, um die geteilte Datei lokal zu transkribieren.")
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }

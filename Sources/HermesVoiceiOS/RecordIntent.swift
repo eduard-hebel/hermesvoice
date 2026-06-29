@@ -30,7 +30,12 @@ struct HermesShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: StartDictationIntent(),
-            phrases: ["Diktat mit \(.applicationName)", "\(.applicationName) Diktat"],
+            phrases: [
+                "Diktat mit \(.applicationName)",
+                "\(.applicationName) Diktat",
+                "Dictate with \(.applicationName)",
+                "\(.applicationName) dictation"
+            ],
             shortTitle: "Diktat",
             systemImageName: "mic.fill"
         )

@@ -156,8 +156,26 @@ struct RecordView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
+                Menu {
+                    ForEach(FormatMode.allCases) { mode in
+                        Button {
+                            controller.applyStyle(mode)
+                            ActionFeedbackCenter.shared.show(
+                                "\(mode.label) angewendet",
+                                systemImage: mode.iconName,
+                                kind: .success
+                            )
+                        } label: {
+                            Label(mode.label, systemImage: controller.selectedStyle == mode ? "checkmark" : mode.iconName)
+                        }
+                    }
+                } label: {
+                    Label("Style", systemImage: "slider.horizontal.3")
+                        .font(.footnote.weight(.medium))
+                }
+                .tint(Brand.accent)
                 Button {
-                    UIPasteboard.general.string = controller.lastText
+                    controller.copyResult()
                     ActionFeedbackCenter.shared.show(
                         "Diktat kopiert",
                         systemImage: "doc.on.doc.fill",
@@ -168,6 +186,14 @@ struct RecordView: View {
                         .font(.footnote.weight(.medium))
                 }
                 .tint(Brand.accent)
+            }
+            if controller.selectedStyle != .free {
+                Label(controller.selectedStyle.label, systemImage: controller.selectedStyle.iconName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Brand.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Brand.accent.opacity(0.12), in: Capsule())
             }
             ScrollView {
                 Text(controller.lastText)

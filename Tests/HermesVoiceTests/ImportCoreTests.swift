@@ -40,6 +40,25 @@ final class ImportCoreTests: XCTestCase {
         XCTAssertEqual(decoded, item)
     }
 
+    func testTranscriptStylerKeepsRawTextUnchanged() {
+        let text = "  Hey, das ist roh gesprochen.  "
+
+        XCTAssertEqual(TranscriptStyler.style(text, as: .free), text)
+    }
+
+    func testTranscriptStylerCreatesShortMessage() {
+        let text = "  Hey, kannst du mir bitte die Unterlagen schicken? Vielen Dank.  "
+
+        XCTAssertEqual(
+            TranscriptStyler.style(text, as: .shortMessage),
+            "Hey, kannst du mir bitte die Unterlagen schicken? Vielen Dank."
+        )
+    }
+
+    func testFormatModeLabelsMatchManualStyleMenu() {
+        XCTAssertEqual(FormatMode.allCases.map(\.label), ["Raw", "Short Message", "Email", "Note", "AI Prompt"])
+    }
+
     func testImportStorePersistsEntriesSeparately() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -489,6 +508,33 @@ final class ImportCoreTests: XCTestCase {
 
         XCTAssertEqual(envelope.originalFilename, "telegram-voice.ogg")
         XCTAssertEqual(envelope.fileURL.pathExtension, "ogg")
+    }
+
+    func testSharedInboxResolvesTelegramFileURLPropertyListToRealAudioFile() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let telegramAudioURL = directory.appendingPathComponent("telegram_audio.ogg")
+        let audioData = Data("real telegram audio".utf8)
+        try audioData.write(to: telegramAudioURL)
+
+        let pointerURL = directory.appendingPathComponent("Datei-URL")
+        let pointerData = try PropertyListSerialization.data(
+            fromPropertyList: [telegramAudioURL.absoluteString, "", [:]],
+            format: .binary,
+            options: 0
+        )
+        try pointerData.write(to: pointerURL)
+
+        let inbox = SharedImportInbox(rootURL: directory.appendingPathComponent("inbox", isDirectory: true))
+
+        let envelope = try inbox.enqueue(fileURL: pointerURL, originalFilename: "Datei-URL")
+
+        XCTAssertEqual(envelope.originalFilename, "telegram_audio.ogg")
+        XCTAssertEqual(envelope.fileURL.pathExtension, "ogg")
+        XCTAssertEqual(try Data(contentsOf: envelope.fileURL), audioData)
     }
 
     func testSharedInboxUsesTheConfiguredAppGroup() {

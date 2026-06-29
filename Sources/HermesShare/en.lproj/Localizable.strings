@@ -1,0 +1,7 @@
+"Datei wird an HermesVoice übergeben ..." = "Sending file to HermesVoice ...";
+"Fertig" = "Done";
+"Keine unterstützte Audio- oder Videodatei gefunden." = "No supported audio or video file found.";
+"Übergeben. Öffne HermesVoice; der Import startet dort automatisch." = "Sent. Open HermesVoice; the import starts there automatically.";
+"Übergabe fehlgeschlagen: %@" = "Sending failed: %@";
+"Bereit für HermesVoice" = "Ready for HermesVoice";
+"Öffne HermesVoice, um die geteilte Datei lokal zu transkribieren." = "Open HermesVoice to transcribe the shared file locally.";

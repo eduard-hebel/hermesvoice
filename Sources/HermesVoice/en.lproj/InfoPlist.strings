@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "HermesVoice needs microphone access to record your speech and transcribe it locally with Whisper.";
+"CFBundleDisplayName" = "HermesVoice";
